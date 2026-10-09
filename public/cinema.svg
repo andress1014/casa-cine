@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="480" viewBox="0 0 600 480" fill="none">
+  <defs>
+    <linearGradient id="screen" x1="310" y1="112" x2="510" y2="390" gradientUnits="userSpaceOnUse"><stop stop-color="#bfd891"/><stop offset="1" stop-color="#65864b"/></linearGradient>
+    <linearGradient id="ticket" x1="83" y1="241" x2="270" y2="465" gradientUnits="userSpaceOnUse"><stop stop-color="#ecbaa2"/><stop offset="1" stop-color="#cc917c"/></linearGradient>
+    <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" stroke="#b6d386" stroke-opacity=".09"/></pattern>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="22" stdDeviation="20" flood-color="#000" flood-opacity=".35"/></filter>
+  </defs>
+  <circle cx="360" cy="238" r="186" fill="#a1b87f" fill-opacity=".055"/><circle cx="360" cy="238" r="153" stroke="#afc489" stroke-opacity=".16"/><circle cx="360" cy="238" r="205" stroke="#afc489" stroke-opacity=".1" stroke-dasharray="3 8"/>
+  <path d="M175 123q181-145 353 52" stroke="#c9df9b" stroke-width="2" stroke-opacity=".4"/><path d="m515 151 17 25-30 0" stroke="#c9df9b" stroke-width="2" stroke-opacity=".4"/>
+  <g transform="rotate(9 376 251)" filter="url(#shadow)">
+    <rect x="219" y="126" width="310" height="242" rx="27" fill="#252b20" stroke="#7e8c66" stroke-width="2"/>
+    <rect x="236" y="143" width="276" height="198" rx="16" fill="url(#screen)"/><rect x="236" y="143" width="276" height="198" rx="16" fill="url(#grid)"/>
+    <path d="m281 310 55-57 40 31 45-70 62 96H281Z" fill="#1f3a21" fill-opacity=".25"/>
+    <circle cx="374" cy="239" r="40" fill="#d8fc70"/><path d="m364 221 30 18-30 18v-36Z" fill="#213016"/>
+    <circle cx="374" cy="355" r="4" fill="#d8fc70"/><path d="m354 369-12 29h65l-12-29" fill="#343e2a"/><rect x="329" y="396" width="92" height="7" rx="3.5" fill="#586649"/>
+    <rect x="448" y="155" width="48" height="22" rx="6" fill="#29412a" fill-opacity=".8"/><text x="460" y="171" fill="#d8fc70" font-family="Arial,sans-serif" font-size="12" font-weight="700">PLAY</text>
+  </g>
+  <g transform="rotate(-13 179 295)" filter="url(#shadow)">
+    <path d="M103 222h160v37a15 15 0 0 0 0 30v77H103v-77a15 15 0 0 0 0-30v-37Z" fill="url(#ticket)"/>
+    <path d="M227 234v121" stroke="#815c4f" stroke-dasharray="4 5" stroke-opacity=".6"/><text x="118" y="249" fill="#483328" font-family="Arial,sans-serif" font-size="10" letter-spacing="2">EL MEJOR PLAN</text>
+    <text x="118" y="279" fill="#483328" font-family="Arial,sans-serif" font-size="26" font-weight="900">CASA</text><text x="118" y="306" fill="#483328" font-family="Arial,sans-serif" font-size="26" font-weight="900">CINE.</text>
+    <path d="M119 328h94" stroke="#745241" stroke-opacity=".4"/><text x="118" y="349" fill="#654638" font-family="Arial,sans-serif" font-size="9" letter-spacing="1">ADMITE BUENA COMPAÑÍA</text>
+    <text x="247" y="345" fill="#483328" font-family="Arial,sans-serif" font-size="13" font-weight="700" transform="rotate(-90 247 345)">ENTRADA ∞</text>
+  </g>
+  <g transform="rotate(12 491 348)"><path d="m468 324 8 60h42l8-60" fill="#dbd5b8"/><path d="m482 324 4 60h8l-1-60m13 0-1 60h8l4-60" fill="#d69577"/><path d="M466 325h62" stroke="#f5e8ca" stroke-width="4"/><g fill="#f4e8c7"><circle cx="474" cy="315" r="10"/><circle cx="490" cy="309" r="13"/><circle cx="509" cy="315" r="12"/><circle cx="519" cy="307" r="9"/><circle cx="500" cy="299" r="10"/><circle cx="480" cy="300" r="9"/></g></g>
+  <g stroke="#d8fc70" stroke-width="3"><path d="M185 170v28m-14-14h28m-24-10 20 20m0-20-20 20"/><path d="M493 92v20m-10-10h20"/></g>
+  <circle cx="162" cy="374" r="4" fill="#d8fc70"/><circle cx="547" cy="273" r="5" fill="#d69577"/><circle cx="284" cy="87" r="3" fill="#c1d698"/>
+  <g transform="rotate(-8 377 427)"><rect x="297" y="410" width="160" height="33" rx="16.5" fill="#273122" stroke="#5b6f40"/><circle cx="316" cy="426.5" r="3.5" fill="#d8fc70"/><text x="329" y="431" fill="#c7d7b0" font-family="Arial,sans-serif" font-size="11" letter-spacing="1">100% EN TU CASA</text></g>
+</svg>

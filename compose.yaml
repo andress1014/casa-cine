@@ -1,0 +1,14 @@
+services:
+  casacine:
+    build: .
+    ports:
+      - "${CASACINE_BIND_IP:-127.0.0.1}:3210:3210"
+    volumes:
+      - casacine-data:/app/data
+    environment:
+      HOUSE_CODE: ${HOUSE_CODE:-}
+      MAX_UPLOAD_GB: ${MAX_UPLOAD_GB:-30}
+    restart: unless-stopped
+
+volumes:
+  casacine-data:
