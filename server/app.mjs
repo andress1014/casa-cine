@@ -67,13 +67,13 @@ export async function createApplication(options = {}) {
     const urls = localUrls(config.port);
     const host = req.hostname.replace(/^\[|\]$/g, '');
     if (isLocalAddress(host) && !['127.0.0.1','::1'].includes(host)) urls.unshift(`http://${req.headers.host}`);
-    res.json({ name: 'Palomita', version: '1.2.1', categories,
+    res.json({ name: 'Palomita', version: '1.3.0', categories,
       urls: [...new Set(urls)], maxUploadBytes: config.maxUploadBytes, protected: access.required });
   });
   app.get('/api/device', (req, res) => res.json({ user: req.viaTunnel ? null : localIdentity(req.socket.remoteAddress) }));
   app.get('/api/hub', async (_req, res) => {
     const media = store.list(), disk = await statfs(config.dataDir);
-    res.json({ name: 'Guarida', version: '1.2.1', modules: homeModules,
+    res.json({ name: 'Guarida', version: '1.3.0', modules: homeModules,
       cinema: { count: media.length, ready: media.filter(m => m.status === 'ready').length, bytes: media.reduce((sum,m) => sum + m.size,0) },
       files: files.stats(), recentFiles: files.recent(),
       gaming: games.stats(),

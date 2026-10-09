@@ -2,16 +2,16 @@
 
 **Tu casa tiene su propio universo.** Centro local para cine, documentos y próximas ideas. PC Windows guarda datos; dispositivos de casa comparten biblioteca.
 
-Una PC guarda biblioteca y ejecuta servidor. Desde cualquier ordenador o teléfono de misma red, abre Guarida en navegador para subir, buscar y reproducir. **Android TV usa app nativa Palomita TV**, instalable mediante APK y USB, con control remoto. Sin nube, anuncios ni suscripciones.
+Una PC guarda biblioteca y ejecuta servidor. Desde cualquier ordenador o teléfono de misma red, abre Guarida en navegador para subir, buscar y reproducir. **Android TV usa Guarida TV (Cine / Gaming)**, instalable mediante APK y USB, con control remoto. Sin nube, anuncios ni suscripciones.
 
 ![Guarida: cine y archivos de casa](docs/guarida-home.png)
 
 ## Qué incluye
 
 - **Inicio Guarida**: secciones, actividad reciente y espacio real de disco.
-- **Palomita**: videoclub web y APK Android TV. Carátula incrustada tiene prioridad sobre fotograma automático. Búsqueda TMDb opcional para guardar ficha, carátula y fondo en Windows.
+- **Palomita**: videoclub web y APK Android TV. Carátula incrustada tiene prioridad sobre fotograma automático. TMDb busca automáticamente coincidencias únicas y guarda ficha, carátula y fondo en Windows; selección manual permite corregirlas.
 - **Archivos**: carpetas, subir varios documentos/fotos/comprimidos, buscar, renombrar, mover, descargar y eliminar. Hasta 2 GB por archivo, configurable.
-- **Gaming**: biblioteca PS1/SNES, emulación web, controles y perfiles con partidas guardadas en Windows. [Configuración y formatos](docs/GAMING.md).
+- **Gaming**: biblioteca PS1/SNES, emulación web y en Guarida TV, mandos Bluetooth/USB y perfiles con partidas guardadas en Windows. [Configuración y formatos](docs/GAMING.md).
 - **Subtítulos**: extracción automática de texto incrustado; añadir SRT/VTT UTF-8 desde reproductor web. Pistas compartidas con TV.
 - **Reproductor TV**: saltos fijos de 10 segundos, repeticiones de tecla ignoradas, menús de subtítulos/audio, velocidad e imagen; reintento de conexión, posición guardada y fondo de película después de 30 segundos en pausa (APK 1.2.0).
 
@@ -29,7 +29,7 @@ Una PC guarda biblioteca y ejecuta servidor. Desde cualquier ordenador o teléfo
 
 ## Actualizar instalación Windows existente
 
-Versión personal 1.2.0: [paquete Windows y APK local](docs/ACTUALIZAR-1.2.0.md). Para instalación publicada anterior, lee [actualización Windows y APK](docs/ACTUALIZAR-WINDOWS.md). Mantiene datos, `.env`, tarea de arranque `CasaCine` y paquete Android anteriores. Sitio inicial ahora es `/`; cine está en `/cine`, archivos en `/archivos`.
+Versión personal 1.3.0: [Guarida TV, Gaming y DualSense](docs/GUARIDA-TV-GAMING.md). Para instalación publicada anterior, lee [actualización Windows y APK](docs/ACTUALIZAR-WINDOWS.md). Mantiene datos, `.env`, tarea de arranque `CasaCine` y paquete Android anteriores. Sitio inicial ahora es `/`; cine está en `/cine`, archivos en `/archivos`.
 
 ## Empezar en Windows
 
@@ -56,7 +56,7 @@ Reglas permiten puerto HTTP configurado y UDP 3211 para detección de TV, única
 
 ### Android TV / Google TV
 
-1. Versión nueva personal: **Palomita-TV-v1.2.0.apk**, generada en `releases/`. Versión anterior 1.1.0 sigue en [Releases de repositorio privado](https://github.com/andress1014/casa-cine/releases). En GitHub necesitas sesión de tu cuenta personal.
+1. Versión nueva personal: **Guarida-TV-v1.3.3.apk**, generada en `releases/`. Versión anterior 1.1.0 sigue en [Releases de repositorio privado](https://github.com/andress1014/casa-cine/releases). En GitHub necesitas sesión de tu cuenta personal.
 2. Copia APK a memoria USB y conéctala a TV. USB transfiere instalador; películas permanecen en PC.
 3. Abre gestor de archivos de TV y selecciona APK. Si TV no incluye gestor, instala uno compatible desde Google Play.
 4. Cuando Android lo solicite, permite **Instalar apps desconocidas** para ese gestor e instala Palomita TV. Nombre/ruta de ajuste depende de fabricante; [Android documenta permiso por aplicación](https://developer.android.com/studio/publish).

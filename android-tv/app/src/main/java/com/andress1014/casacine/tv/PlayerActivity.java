@@ -40,7 +40,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
-public final class PlayerActivity extends Activity {
+public final class PlayerActivity extends TvActivity {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService tasks = Executors.newSingleThreadExecutor();
     private SharedPreferences prefs;
@@ -219,6 +219,7 @@ public final class PlayerActivity extends Activity {
     }
     @Override protected void onDestroy() { main.removeCallbacksAndMessages(null); tasks.shutdownNow(); super.onDestroy(); }
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        event = menuKey(event);
         if (view == null || player == null || errorVisible) return super.dispatchKeyEvent(event);
         int code = event.getKeyCode();
         if (code == idleResumeKey) {
@@ -227,7 +228,7 @@ public final class PlayerActivity extends Activity {
         }
         if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
             boolean shown = idleVisible; artworkInteraction();
-            if (shown && (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || code == KeyEvent.KEYCODE_MEDIA_PLAY)) {
+            if (shown && (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || code == KeyEvent.KEYCODE_MEDIA_PLAY || code == KeyEvent.KEYCODE_BUTTON_START)) {
                 idleResumeKey = code;
                 if (player.getPlaybackState() == Player.STATE_ENDED) player.seekTo(0);
                 player.play(); return true;
@@ -238,7 +239,7 @@ public final class PlayerActivity extends Activity {
             || ((code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT) && (!view.isControllerFullyVisible() || (timeBar != null && timeBar.hasFocus())));
         if (seek) { if (RemoteSeek.accept(event.getAction(),event.getRepeatCount())) seek(forward); return true; }
         if (code == KeyEvent.KEYCODE_BACK && view.isControllerFullyVisible()) { if (event.getAction() == KeyEvent.ACTION_UP) view.hideController(); return true; }
-        if (code == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || code == KeyEvent.KEYCODE_MEDIA_PLAY || code == KeyEvent.KEYCODE_MEDIA_PAUSE || (code == KeyEvent.KEYCODE_DPAD_CENTER && (!view.isControllerFullyVisible() || (timeBar != null && timeBar.hasFocus())))) {
+        if (code == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || code == KeyEvent.KEYCODE_MEDIA_PLAY || code == KeyEvent.KEYCODE_MEDIA_PAUSE || code == KeyEvent.KEYCODE_BUTTON_START || (code == KeyEvent.KEYCODE_DPAD_CENTER && (!view.isControllerFullyVisible() || (timeBar != null && timeBar.hasFocus())))) {
             if (RemoteSeek.accept(event.getAction(),event.getRepeatCount())) { if (code == KeyEvent.KEYCODE_MEDIA_PAUSE || (code != KeyEvent.KEYCODE_MEDIA_PLAY && player.isPlaying())) player.pause(); else player.play(); view.showController(); } return true;
         }
         if (event.getRepeatCount() > 0 && (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER)) return true;

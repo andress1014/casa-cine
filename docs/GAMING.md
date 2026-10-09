@@ -1,6 +1,6 @@
 # Gaming · Guarida
 
-Biblioteca local para PlayStation 1 y Super Nintendo. Windows almacena juegos, BIOS, portadas y partidas; navegador del dispositivo donde juegas ejecuta emulador. APK Palomita reproduce cine; Gaming se abre desde web.
+Biblioteca local para PlayStation 1 y Super Nintendo. Windows almacena juegos, BIOS, portadas y partidas; dispositivo donde juegas ejecuta emulador. Web y [Guarida TV 1.3.0](GUARIDA-TV-GAMING.md) comparten perfiles y guardados. APK integra Cine y Gaming, con entrada nativa para mandos Bluetooth/USB.
 
 ## Preparar servidor
 

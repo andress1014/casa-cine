@@ -93,6 +93,15 @@ public final class ServerClient {
         return result;
     }
     public Media media(String id) throws Exception { validateId(id); return Media.fromJson(json("/api/media/" + id,null).getJSONObject("media")); }
+    public JSONObject gamingConfig() throws Exception { return json("/api/gaming/config",null); }
+    public List<Game> games() throws Exception {
+        JSONArray values = json("/api/gaming/games",null).getJSONArray("games"); List<Game> result = new ArrayList<>();
+        for (int i = 0; i < values.length(); i++) { try { result.add(Game.fromJson(values.getJSONObject(i))); } catch (Exception ignored) {} }
+        return result;
+    }
+    public JSONArray gamePlayers() throws Exception { return json("/api/gaming/players",null).getJSONArray("players"); }
+    public JSONObject createGamePlayer(String name) throws Exception { return json("/api/gaming/players",new JSONObject().put("name",name)).getJSONObject("player"); }
+    public Bitmap gameCover(String id) throws Exception { validateId(id); return bitmap(connection("/api/gaming/games/" + id + "/cover"),720); }
     public String subtitleUrl(String mediaId,String trackId) { validateId(mediaId); validateId(trackId); return base + "/api/media/" + mediaId + "/subtitles/" + trackId; }
     public Bitmap poster(String id) throws Exception {
         validateId(id);
