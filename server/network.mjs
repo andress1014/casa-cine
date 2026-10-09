@@ -27,13 +27,23 @@ export function localIdentity(remoteAddress = '') {
   catch { return null; }
 }
 
+// Optional public hostnames served by a reverse tunnel running on this PC (cloudflared, etc.).
+// Comma separated; leading dot matches any subdomain. Tunnel connects from localhost, so IP check still applies.
+export function isPublicHost(host = '', allowed = process.env.PUBLIC_HOSTS || '') {
+  const name = host.toLowerCase();
+  return allowed.toLowerCase().split(',').map(h => h.trim()).filter(Boolean)
+    .some(h => h.startsWith('.') ? name.length > h.length && name.endsWith(h) : name === h);
+}
+
 export function localOnly(req, res, next) {
   if (!isLocalAddress(req.socket.remoteAddress)) return res.status(403).json({ error: 'Guarida funciona dentro de tu red local.' });
   let host;
   try { host = new URL(`http://${req.headers.host}`).hostname.replace(/^\[|\]$/g, ''); }
   catch { return res.status(400).json({ error: 'Dirección inválida.' }); }
   const computer = hostname().toLowerCase();
-  if (!isLocalAddress(host) && !['localhost', computer, `${computer}.local`].includes(host.toLowerCase())) {
+  // Visitors behind tunnel share localhost address: never treat them as this computer.
+  req.viaTunnel = isPublicHost(host);
+  if (!req.viaTunnel && !isLocalAddress(host) && !['localhost', computer, `${computer}.local`].includes(host.toLowerCase())) {
     return res.status(403).json({ error: 'Usa la dirección local de Guarida.' });
   }
   if (req.headers['sec-fetch-site'] === 'cross-site') return res.status(403).json({ error: 'Abre Guarida directamente desde tu red.' });

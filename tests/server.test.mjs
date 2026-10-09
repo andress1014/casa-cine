@@ -9,7 +9,7 @@ import { once } from 'node:events';
 import { request } from 'node:http';
 import { createApplication } from '../server/app.mjs';
 import { ffmpegPath } from '../server/media.mjs';
-import { isLocalAddress } from '../server/network.mjs';
+import { isLocalAddress, isPublicHost } from '../server/network.mjs';
 
 const exec = promisify(execFile);
 let fixtureDir, mp4, mkv, avi;
@@ -148,6 +148,9 @@ test('bloquea rebinding, sitios externos y direcciones públicas', async () => {
     assert.equal((await fetch(`${s.base}/api/session`,{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://attacker.example'},body:'{"code":""}'})).status,403);
     for (const ip of ['192.168.1.4','10.0.0.8','172.16.0.1','127.0.0.1','::1','::ffff:192.168.1.1','fd12::1']) assert.equal(isLocalAddress(ip),true);
     for (const ip of ['8.8.8.8','172.15.1.1','172.32.0.1','2001:4860:4860::8888','fc-malformed','192.168.bad.1']) assert.equal(isLocalAddress(ip),false);
+    for (const host of ['demo.trycloudflare.com','Casa.Example.org']) assert.equal(isPublicHost(host,'.trycloudflare.com, casa.example.org'),true);
+    for (const host of ['trycloudflare.com','eviltrycloudflare.com.attacker.example','other.example.org','']) assert.equal(isPublicHost(host,'.trycloudflare.com, casa.example.org'),false);
+    assert.equal(isPublicHost('demo.trycloudflare.com',''),false);
   } finally { await s.close(); }
 });
 

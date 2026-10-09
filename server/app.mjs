@@ -70,7 +70,7 @@ export async function createApplication(options = {}) {
     res.json({ name: 'Palomita', version: '1.2.1', categories,
       urls: [...new Set(urls)], maxUploadBytes: config.maxUploadBytes, protected: access.required });
   });
-  app.get('/api/device', (req, res) => res.json({ user: localIdentity(req.socket.remoteAddress) }));
+  app.get('/api/device', (req, res) => res.json({ user: req.viaTunnel ? null : localIdentity(req.socket.remoteAddress) }));
   app.get('/api/hub', async (_req, res) => {
     const media = store.list(), disk = await statfs(config.dataDir);
     res.json({ name: 'Guarida', version: '1.2.1', modules: homeModules,
