@@ -6,7 +6,7 @@ Aplicación doméstica con servidor único en PC Windows, clientes web para subi
 
 ```mermaid
 flowchart LR
-  PC[Ordenadores y teléfonos] -->|HTTP LAN: subir / catálogo / video| Server[CasaCine en PC Windows]
+  PC[Ordenadores y teléfonos] -->|HTTP LAN: subir / catálogo / video| Server[Guarida en PC Windows]
   TV[App Android TV] -->|HTTP LAN: catálogo / video| Server
   TV -->|UDP 3211: detección de PC| Server
   Server --> DB[(SQLite)]
@@ -50,4 +50,15 @@ No es servidor público. NAT/VPN/reverse proxy puede hacer que IP remota parezca
 
 Videos largos pueden tardar en convertir. Espacio de conversiones requiere margen adicional, no una cuota global. Subidas interrumpidas no son reanudables. Una sola instancia maneja biblioteca; no desplegar varios procesos contra mismo directorio.
 
-No se ha verificado en hardware Android TV ni Windows físico durante desarrollo en macOS. APK debug sirve para instalación personal mediante USB, no distribución Play Store. Compatibilidad final de decodificación depende de TV y video; servidor prepara MP4 H.264/AAC. No incluye Cast, HLS, sincronización, subtítulos, importación de carpetas existentes sin copia ni cuentas múltiples.
+No se ha verificado en hardware Android TV ni Windows físico durante desarrollo en macOS. APK debug sirve para instalación personal mediante USB, no distribución Play Store. Compatibilidad final de decodificación depende de TV y video; servidor prepara MP4 H.264/AAC. No incluye Cast, HLS, sincronización, importación de carpetas existentes sin copia ni cuentas múltiples.
+
+
+## Evolución 1.1.0
+
+Guarida contiene secciones declaradas en `shared/home-modules.json`. Rutas web independientes: inicio `/`, Palomita `/cine`, Archivos `/archivos`, Gaming `/gaming` (planificado). Conserva `/api/media`, identidad y contrato UDP para APK anterior.
+
+Archivos usa SQLite separado `home.sqlite`: carpetas anidadas y archivos UUID, originales en `documents`. Subida multipart transmite a disco; valida extensión, MIME, firma básica, metadatos y límite; SHA-256 calcula huella sin cargar archivo completo. Descargas como adjunto, nunca ejecución ni extracción de comprimidos. Sincroniza listas con sondeo local.
+
+Catálogo de cine agrega columnas mediante migración aditiva. Cola serial extrae carátula incrustada y subtítulos de texto desde originales; transforma SRT/VTT externos con FFmpeg limitado a protocolos locales. Pistas tienen UUID, idioma y etiqueta; API mantiene autenticación común. Solo permite modificar pistas externas. Lectura de imágenes y subtítulos tiene límites; no se aceptan URLs externas. Preparación mantiene varios audios. Refrescar metadata de videos antiguos puede recuperar audios perdidos en preparación anterior copiando video sin recodificar.
+
+Estado privado de app TV mantiene namespace/paquete anteriores; nombre visible cambia a Palomita. PlayerView usa incremento de tiempo fijo y despacho único de control; navegación, selección de pistas, tamaño de imagen, velocidad y reintento son nativos.

@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Play, Plus, Search, Heart, Clock3, House, Shuffle, ArrowUpRight, Wifi, Film, Monitor, X,
   Sparkles, ArrowRight, UploadCloud, ChevronDown, Popcorn, Copy, Check, Laptop, Smartphone, Tv, LoaderCircle,
-  AlertTriangle, LogOut, Settings2, Menu } from 'lucide-react';
+  AlertTriangle, LogOut, Settings2, Menu, FolderOpen, Gamepad2 } from 'lucide-react';
 import { Dialog } from './Dialog';
 import { Upload } from './Upload';
 import { Player } from './Player';
+import { Home, Gaming } from './Home';
+import { Files } from './Files';
+import { currentSection, sectionPaths, type Section, type Hub } from './home-types';
+import modules from '../shared/home-modules.json';
 import { api, bytes, categories, duration, readLocal, writeLocal, type Media, type System, type WatchProgress } from './types';
 
 type View = 'library' | 'favourites' | 'continue';
@@ -29,7 +33,7 @@ function initialProgress(): WatchProgress {
   return Object.fromEntries(Object.entries(value).filter(([id, p]) => /^[a-f0-9-]{36}$/.test(id) && p && typeof p.time === 'number' && typeof p.duration === 'number' && typeof p.updatedAt === 'number'));
 }
 
-function Brand() { return <div className="brand"><span className="brand-mark"><Play fill="currentColor" size={23} /></span><span>casa<span className="brand-second">cine<span className="brand-dot">.</span></span></span></div>; }
+function Brand() { return <div className="brand guarida-brand"><span className="brand-mark"><House size={25} strokeWidth={2.4} /></span><span>guarida<span className="brand-dot">.</span><small>CASA CONECTADA</small></span></div>; }
 
 function MovieCard({ media, favourite, progress, onPlay, onFavourite }: { media: Media; favourite: boolean; progress?: WatchProgress[string]; onPlay: () => void; onFavourite: () => void }) {
   const watched = progress && progress.time > 5 && progress.time < progress.duration * 0.95;
@@ -48,6 +52,9 @@ function MovieCard({ media, favourite, progress, onPlay, onFavourite }: { media:
 }
 
 export function App() {
+  const [section, setSection] = useState<Section>(currentSection);
+  const [hub, setHub] = useState<Hub | null>(null);
+  const [hubFailed, setHubFailed] = useState(false);
   const [session, setSession] = useState<'loading' | 'locked' | 'open' | 'failed'>('loading');
   const [media, setMedia] = useState<Media[]>([]);
   const [system, setSystem] = useState<System | null>(null);
@@ -78,6 +85,19 @@ export function App() {
     catch { setConnected(false); } finally { setLoading(false); }
   }, []);
   const checkSession = useCallback(() => { setSession('loading'); void api<{ authenticated: boolean }>('/api/session').then(s => setSession(s.authenticated ? 'open' : 'locked')).catch(() => setSession('failed')); }, []);
+  const refreshHub = useCallback(async () => {
+    try { const result = await api<Hub>('/api/hub'); setHub(result); setHubFailed(false); }
+    catch { setHubFailed(true); }
+  }, []);
+  function goSection(next: Section) {
+    if (window.location.pathname !== sectionPaths[next]) window.history.pushState(null, '', sectionPaths[next]);
+    setSection(next); setMobileMenu(false); setTvMode(false); setSelected(null); setModal(null);
+  }
+  useEffect(() => {
+    const pop = () => { setSection(currentSection()); setMobileMenu(false); setTvMode(false); setSelected(null); setModal(null); };
+    window.addEventListener('popstate',pop); return () => window.removeEventListener('popstate',pop);
+  }, []);
+  useEffect(() => { document.title = `${section === 'cinema' ? 'Palomita' : section === 'files' ? 'Archivos' : section === 'gaming' ? 'Gaming' : 'Tu casa'} · Guarida`; },[section]);
   useEffect(checkSession, [checkSession]);
   useEffect(() => {
     const handler = () => { setSession('locked'); setModal(null); setSelected(null); };
@@ -94,12 +114,14 @@ export function App() {
       else if (typeof local === 'string' && local.trim()) { setName(local.slice(0,60)); setIdentitySource('system'); }
       else setModal(previous => previous || 'profile');
     }).catch(() => { if (!readLocal('user-name', '') && !readLocal('device-user', '')) setModal(previous => previous || 'profile'); });
+    void refreshHub();
+    const hubTimer = setInterval(() => { if (document.visibilityState === 'visible') void refreshHub(); },10000);
     void refresh(); void api<System>('/api/system').then(setSystem).catch(() => setConnected(false));
     const interval = setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 4000);
     const visible = () => { if (document.visibilityState === 'visible') void refresh(); };
     document.addEventListener('visibilitychange', visible);
-    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', visible); };
-  }, [session, refresh]);
+    return () => { clearInterval(interval); clearInterval(hubTimer); document.removeEventListener('visibilitychange', visible); };
+  }, [session, refresh, refreshHub]);
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
   useEffect(() => {
     if (!tvMode) return;
@@ -129,7 +151,7 @@ export function App() {
   }, []);
   function toggleFavourite(id: string) { setFavourites(previous => { const next = previous.includes(id) ? previous.filter(v => v !== id) : [...previous, id]; writeLocal('favourites', next); return next; }); }
   function changed(item: Media) { setMedia(previous => [item, ...previous.filter(m => m.id !== item.id)].sort((a,b) => b.createdAt.localeCompare(a.createdAt))); }
-  function chooseView(next: View) { setView(next); setCollection('Todo'); setSearch(''); setMobileMenu(false); }
+  function chooseView(next: View) { if (section !== 'cinema') goSection('cinema'); setView(next); setCollection('Todo'); setSearch(''); setMobileMenu(false); }
   const continuing = media.filter(m => progress[m.id]?.time > 5 && progress[m.id].time < progress[m.id].duration * 0.95);
   const visible = useMemo(() => {
     const normalized = search.toLocaleLowerCase();
@@ -154,30 +176,36 @@ export function App() {
   }
 
   if (session !== 'open') return <div className="entry-screen"><Brand />
-    {session === 'loading' ? <div className="entry-panel"><LoaderCircle size={36} className="spin lime" /><h1>Preparando tu videoclub…</h1></div>
+    {session === 'loading' ? <div className="entry-panel"><LoaderCircle size={36} className="spin lime" /><h1>Preparando tu Guarida…</h1></div>
       : session === 'failed' ? <div className="entry-panel"><Wifi size={42} /><h1>Volvamos a conectar</h1><p>Revisa que servidor esté encendido y abre dirección local de tu PC.</p><button className="button primary" onClick={checkSession}>Reintentar <ArrowRight size={18} /></button></div>
         : <Login onLogin={() => setSession('open')} />}</div>;
 
   return <div className={`app-shell ${tvMode ? 'tv-mode' : ''}`}>
-    <a href="#catalogue" className="skip-link">Ir al catálogo</a>
+    <a href="#main-content" className="skip-link">Ir al contenido</a>
     <aside className={`sidebar ${mobileMenu ? 'sidebar-open' : ''}`}>
       <div className="sidebar-top"><Brand /><button className="icon-button sidebar-close" aria-label="Cerrar menú" onClick={() => setMobileMenu(false)}><X size={20} /></button></div>
-      <p className="nav-eyebrow">TU RINCÓN FAVORITO</p>
-      <nav aria-label="Biblioteca">{nav.map(item => <button key={item.id} data-tv className={`nav-item ${view === item.id ? 'selected' : ''}`} onClick={() => chooseView(item.id)}>
-        <item.icon size={20} /><span>{item.label}</span><span className="nav-count">{item.id === 'library' ? media.length : item.id === 'favourites' ? favouriteCount : continuing.length}</span>
-      </button>)}</nav>
-      <div className="sidebar-divider" /><button className="nav-item shuffle-nav" data-tv onClick={randomMovie}><Shuffle size={20} /><span>Sorpréndeme</span><Sparkles size={16} /></button>
-      <div className="sidebar-invite"><span className="invite-icon"><Popcorn size={28} /></span><h3>Una casa.<br />Mil historias.</h3><p>Comparte ese video que merece una pantalla grande.</p><button data-tv className="invite-link" onClick={() => setModal('upload')}>Traer un video <ArrowUpRight size={17} /></button></div>
+      <p className="nav-eyebrow">TU CASA, A TU MANERA</p>
+      <nav className="module-navigation" aria-label="Secciones de Guarida">
+        <button className={`nav-item ${section === 'home' ? 'selected' : ''}`} onClick={() => goSection('home')}><House size={20} /><span>Mi Guarida</span></button>
+        {modules.map(module => { const Icon = module.id === 'cinema' ? Film : module.id === 'files' ? FolderOpen : Gamepad2; return <button key={module.id} className={`nav-item ${section === module.id ? 'selected' : ''}`} onClick={() => goSection(module.id as Section)}><Icon size={20} /><span>{module.name}</span>{module.status === 'planned' ? <span className="nav-soon">Pronto</span> : <span className="nav-count">{module.id === 'cinema' ? media.length : hub?.files.count ?? '—'}</span>}</button>; })}
+      </nav>
+      {section === 'cinema' ? <><div className="sidebar-divider" /><nav className="cinema-subnav" aria-label="Biblioteca">{nav.map(item => <button key={item.id} data-tv className={`nav-item ${view === item.id ? 'selected' : ''}`} onClick={() => chooseView(item.id)}><item.icon size={18} /><span>{item.label}</span><span className="nav-count">{item.id === 'library' ? media.length : item.id === 'favourites' ? favouriteCount : continuing.length}</span></button>)}</nav><button className="nav-item shuffle-nav" data-tv onClick={randomMovie}><Shuffle size={18} /><span>Sorpréndeme</span><Sparkles size={15} /></button></>
+        : <div className="sidebar-invite hub-invite"><span className="invite-icon"><Sparkles size={26} /></span><h3>Tu casa.<br />Tus reglas.</h3><p>Un rincón nuevo para cada idea. Esta Guarida crece contigo.</p><button className="invite-link" onClick={() => goSection('gaming')}>Ver próximo rincón <ArrowUpRight size={17} /></button></div>}
       <div className="sidebar-bottom"><button className="network-link" data-tv onClick={() => setModal('network')}><Wifi size={18} /><span>Conectar dispositivos</span><ArrowUpRight size={15} /></button>
         <button className="profile-button" data-tv onClick={() => setModal('profile')}><span className="avatar">{name.slice(0,1).toUpperCase() || '?'}</span><span><strong>{name || 'Tu nombre'}</strong><small>{identitySource === 'system' ? 'Usuario de este equipo' : 'Perfil de este dispositivo'}</small></span><Settings2 size={17} /></button></div>
     </aside>
     {mobileMenu && <button className="sidebar-backdrop" aria-label="Cerrar menú" onClick={() => setMobileMenu(false)} />}
-    <main>
-      <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" aria-label="Abrir menú" onClick={() => setMobileMenu(true)}><Menu size={23} /></button><span className="topbar-title">Tu casa, tu cine<span className="topbar-dot">✳</span></span></div>
+    <main id="main-content">
+      <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" aria-label="Abrir menú" onClick={() => setMobileMenu(true)}><Menu size={23} /></button><span className="topbar-title">{section === 'home' ? 'Tu casa, tu universo' : section === 'cinema' ? 'Palomita / Tu videoclub' : section === 'files' ? 'Archivos / Tu estante' : 'Gaming / Próxima etapa'}<span className="topbar-dot">✳</span></span></div>
         <div className="topbar-actions"><button className={`connection-pill ${connected ? '' : 'offline'}`} onClick={() => setModal('network')} data-tv><span className="status-dot" />{connected ? 'Estamos en casa' : 'Sin conexión'}<Wifi size={14} /></button>
-          <button className={`tv-button ${tvMode ? 'active' : ''}`} data-tv aria-pressed={tvMode} onClick={() => { setTvMode(!tvMode); notify(tvMode ? 'Vista normal activada.' : 'Modo TV: navega con flechas y Enter. Escape para salir.'); }}><Monitor size={19} /><span>{tvMode ? 'Salir de modo TV' : 'Modo TV'}</span></button></div>
+          {section === 'cinema' && <button className={`tv-button ${tvMode ? 'active' : ''}`} data-tv aria-pressed={tvMode} onClick={() => { setTvMode(!tvMode); notify(tvMode ? 'Vista normal activada.' : 'Modo TV: navega con flechas y Enter. Escape para salir.'); }}><Monitor size={19} /><span>{tvMode ? 'Salir de modo TV' : 'Modo TV'}</span></button>}</div>
       </header>
       <div className="main-content">
+        {hubFailed && section === 'home' && <div className="connection-warning" role="status"><Wifi size={18} /> No pudimos actualizar panel de casa.<button onClick={() => void refreshHub()}>Reintentar</button></div>}
+        {section === 'home' && <Home hub={hub} media={media} name={name} protectedAccess={system?.protected || false} onNavigate={goSection} onRefresh={() => { void refreshHub(); void refresh(); }} onNetwork={() => setModal('network')} onUpload={() => { goSection('cinema'); setModal('upload'); }} onPlay={id => { goSection('cinema'); setSelected(id); }} />}
+        {section === 'files' && <Files name={name} notify={notify} onChanged={() => void refreshHub()} />}
+        {section === 'gaming' && <Gaming onNavigate={goSection} />}
+        {section === 'cinema' && <>
         {view === 'library' && !search && collection === 'Todo' && <section className={`hero ${featured ? 'hero-featured' : ''}`} aria-label="Bienvenida">
           {featured?.posterUrl && <img className="hero-backdrop" src={featured.posterUrl} alt="" />}
           <div className="hero-text"><span className="hero-eyebrow"><span /> {featured ? 'HOY EN TU VIDEOCLUB' : 'ENTRADAS ILIMITADAS. BUENA COMPAÑÍA.'}</span>
@@ -207,17 +235,18 @@ export function App() {
               {search || collection !== 'Todo' ? <button className="button secondary" data-tv onClick={() => { setSearch(''); setCollection('Todo'); }}>Ver toda colección <ArrowRight size={17} /></button> : view !== 'library' ? <button className="button secondary" data-tv onClick={() => chooseView('library')}>Explorar videoclub <ArrowRight size={17} /></button> : <button className="button empty-upload" data-tv onClick={() => setModal('upload')}><UploadCloud size={19} /> Agregar videos <ArrowUpRight size={17} /></button>}
             </div>}
         </section>
-        <div className="how-it-works"><div className="how-title"><span>EL PLAN ES SIMPLE</span><h3>De tu equipo<br />a cualquier pantalla.</h3></div><div className="how-step"><span className="step-number">01</span><UploadCloud size={23} /><h4>Trae tus historias</h4><p>Sube desde cualquier equipo de casa.</p></div><div className="how-step"><span className="step-number">02</span><Wifi size={23} /><h4>Comparte el plan</h4><p>Abre CasaCine en la misma red.</p></div><div className="how-step"><span className="step-number">03</span><Popcorn size={23} /><h4>Ponte cómodo</h4><p>Dale play. Nosotros ponemos el cine.</p></div></div>
+        <div className="how-it-works"><div className="how-title"><span>EL PLAN ES SIMPLE</span><h3>De tu equipo<br />a cualquier pantalla.</h3></div><div className="how-step"><span className="step-number">01</span><UploadCloud size={23} /><h4>Trae tus historias</h4><p>Sube desde cualquier equipo de casa.</p></div><div className="how-step"><span className="step-number">02</span><Wifi size={23} /><h4>Comparte el plan</h4><p>Abre Palomita en la misma red.</p></div><div className="how-step"><span className="step-number">03</span><Popcorn size={23} /><h4>Ponte cómodo</h4><p>Dale play. Nosotros ponemos el cine.</p></div></div>
         <footer className="footer"><span>casa<span>cine.</span> <span className="footer-separator">/</span> Pequeño cine. Grandes momentos.</span><button data-tv onClick={() => setModal('network')}>Tu cine va contigo, dentro de casa <ArrowUpRight size={14} /></button></footer>
+        </>}
       </div>
     </main>
     {modal === 'upload' && <Upload maxBytes={system?.maxUploadBytes || 30 * 1024 ** 3} name={name} onClose={() => setModal(null)} onUploaded={changed} notify={notify} />}
     {current && <Player media={current} saved={progress[current.id]} favourite={favourites.includes(current.id)} toggleFavourite={() => toggleFavourite(current.id)} saveProgress={saveProgress} onClose={() => setSelected(null)} onChanged={changed} onRemoved={id => setMedia(previous => previous.filter(m => m.id !== id))} notify={notify} />}
-    {modal === 'network' && <Dialog title="Toda la casa tiene entrada" onClose={() => setModal(null)}><p className="dialog-intro">Conecta dispositivos a tu mismo Wi-Fi o router y abre esta dirección en su navegador.</p><div className="device-row"><Laptop size={34} /><Smartphone size={29} /><Tv size={36} /></div>
+    {modal === 'network' && <Dialog title="Conecta tu casa" onClose={() => setModal(null)}><p className="dialog-intro">Conecta dispositivos a mismo Wi-Fi o router y abre esta dirección. Guarida comparte cine y archivos dentro de casa.</p><div className="device-row"><Laptop size={34} /><Smartphone size={29} /><Tv size={36} /></div>
       <div className="network-addresses">{(system?.urls.length ? system.urls : [window.location.origin]).map(url => <div className="network-address" key={url}><input aria-label="Dirección para conectar" readOnly value={url} onFocus={e => e.target.select()} /><button className="icon-button" onClick={() => void copy(url)} aria-label="Copiar dirección">{copied === url ? <Check size={19} /> : <Copy size={19} />}</button></div>)}</div>
-      <div className="help-note"><Wifi size={21} /><div><strong>Mismo Wi-Fi. Mismo videoclub.</strong><p>PC debe estar encendida, con CasaCine abierto y sin suspensión. Red de invitados puede impedir conexión entre equipos.</p></div></div><p className="network-tv-tip"><strong>Android TV:</strong> instala CasaCine TV mediante APK y USB. App encuentra PC en Wi-Fi y se maneja con control remoto. Sube videos desde PC o teléfono.</p><p className="muted small">{system?.protected ? 'Acceso protegido con código de casa.' : 'Acceso disponible para dispositivos de tu red local.'} Archivos quedan guardados en PC servidor.</p>
+      <div className="help-note"><Wifi size={21} /><div><strong>Mismo Wi-Fi. Toda tu Guarida.</strong><p>PC debe estar encendida, con servidor abierto y sin suspensión. Red de invitados puede impedir conexión entre equipos.</p></div></div><p className="network-tv-tip"><strong>Android TV:</strong> instala Palomita TV mediante APK y USB. App encuentra PC en Wi-Fi y se maneja con control remoto. Sube videos desde PC o teléfono.</p><p className="muted small">{system?.protected ? 'Acceso protegido con código de casa.' : 'Acceso disponible para dispositivos de tu red local.'} Archivos quedan guardados en PC servidor.</p>
     </Dialog>}
-    {modal === 'profile' && <Dialog title="Tu rincón de casa" onClose={() => setModal(null)}><p className="dialog-intro">{identitySource === 'system' ? 'Detectamos usuario de este equipo. Puedes cambiar nombre para CasaCine.' : 'Tu navegador no permite leer usuario del sistema. Escribe tu nombre una vez para este dispositivo.'} Este nombre identificará videos que subas desde aquí. Favoritos e historial se guardan en este navegador.</p><label className="form-label">Tu nombre<input value={name} maxLength={60} onChange={event => setName(event.target.value.replace(/[\x00-\x1f]/g, ''))} placeholder="Andrés, María…" /></label><div className="dialog-footer"><span>Tu perfil queda en este dispositivo.</span><button className="button primary" disabled={!name.trim()} onClick={() => { writeLocal('user-name', name.trim()); setName(name.trim()); setIdentitySource('chosen'); setModal(null); notify('Nombre guardado.'); }}><Check size={18} /> Guardar</button></div>{system?.protected && <button className="button secondary logout-button" onClick={() => { void api('/api/session', { method: 'DELETE' }).then(() => { setModal(null); setSession('locked'); }).catch(error => notify(error.message)); }}><LogOut size={18} /> Salir de este dispositivo</button>}</Dialog>}
+    {modal === 'profile' && <Dialog title="Tu rincón de casa" onClose={() => setModal(null)}><p className="dialog-intro">{identitySource === 'system' ? 'Detectamos usuario de este equipo. Puedes cambiar nombre para Guarida.' : 'Tu navegador no permite leer usuario del sistema. Escribe tu nombre una vez para este dispositivo.'} Este nombre identificará archivos y videos que subas desde aquí. Favoritos e historial se guardan en este navegador.</p><label className="form-label">Tu nombre<input value={name} maxLength={60} onChange={event => setName(event.target.value.replace(/[\x00-\x1f]/g, ''))} placeholder="Andrés, María…" /></label><div className="dialog-footer"><span>Tu perfil queda en este dispositivo.</span><button className="button primary" disabled={!name.trim()} onClick={() => { writeLocal('user-name', name.trim()); setName(name.trim()); setIdentitySource('chosen'); setModal(null); notify('Nombre guardado.'); }}><Check size={18} /> Guardar</button></div>{system?.protected && <button className="button secondary logout-button" onClick={() => { void api('/api/session', { method: 'DELETE' }).then(() => { setModal(null); setSession('locked'); }).catch(error => notify(error.message)); }}><LogOut size={18} /> Salir de este dispositivo</button>}</Dialog>}
     {toast && <div className="toast" role="status"><span>{toast}</span><button className="icon-button" aria-label="Cerrar aviso" onClick={() => setToast('')}><X size={17} /></button></div>}
   </div>;
 }
@@ -225,6 +254,6 @@ export function App() {
 function Login({ onLogin }: { onLogin: () => void }) {
   const [code, setCode] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   return <form className="entry-panel" onSubmit={event => { event.preventDefault(); setBusy(true); setError(''); void api('/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) }).then(onLogin).catch(error => setError(error.message)).finally(() => setBusy(false)); }}>
-    <span className="entry-icon"><Popcorn size={36} /></span><span className="section-eyebrow">TE GUARDAMOS UN LUGAR</span><h1>Bienvenido a casa.</h1><p>Escribe código de casa para entrar a tu videoclub.</p><label className="form-label">Código de casa<input type="password" autoFocus value={code} maxLength={128} autoComplete="current-password" onChange={e => setCode(e.target.value)} required /></label>{error && <p className="inline-error" role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy ? <LoaderCircle size={18} className="spin" /> : <Play size={18} fill="currentColor" />} Entrar al cine</button>
+    <span className="entry-icon"><Popcorn size={36} /></span><span className="section-eyebrow">TE GUARDAMOS UN LUGAR</span><h1>Bienvenido a casa.</h1><p>Escribe código de casa para entrar a Guarida.</p><label className="form-label">Código de casa<input type="password" autoFocus value={code} maxLength={128} autoComplete="current-password" onChange={e => setCode(e.target.value)} required /></label>{error && <p className="inline-error" role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy ? <LoaderCircle size={18} className="spin" /> : <Play size={18} fill="currentColor" />} Entrar a Guarida</button>
   </form>;
 }

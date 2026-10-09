@@ -9,6 +9,10 @@ import { makeConfig, root } from './config.mjs';
 import { createStore, publicMedia } from './store.mjs';
 import { createMediaQueue, originalPath, probe } from './media.mjs';
 import { localOnly, localUrls, isLocalAddress, createAccess, localIdentity } from './network.mjs';
+import { createFileStore } from './file-store.mjs';
+import { createFilesRouter } from './files.mjs';
+import { createSubtitlesRouter } from './subtitles.mjs';
+import homeModules from '../shared/home-modules.json' with { type: 'json' };
 
 const extensions = ['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.avi', '.mpeg', '.mpg', '.wmv', '.ts'];
 const mimeTypes = ['video/mp4','video/x-m4v','video/quicktime','video/webm','video/x-matroska',
@@ -22,11 +26,13 @@ const idSchema = z.uuid();
 export async function createApplication(options = {}) {
   const config = makeConfig(options);
   const store = createStore(config.dataDir);
+  const files = createFileStore(config.dataDir);
   const queue = createMediaQueue(config, store);
   const access = createAccess(config.houseCode);
   // A crashed upload is never visible in the library. Recover interrupted conversions.
   for (const filename of await readdir(config.scratch)) await rm(path.join(config.scratch, filename), { force: true });
-  for (const m of store.list()) if (m.status === 'processing') queue.enqueue(m.id);
+  for (const filename of await readdir(config.fileScratch)) await rm(path.join(config.fileScratch, filename), { force: true });
+  for (const m of store.list()) { if (m.status === 'processing') queue.enqueue(m.id); else if (m.status === 'ready' && !m.metadataVersion) queue.enqueueExtras(m.id); }
   const app = express();
   app.disable('x-powered-by');
   app.use(localOnly);
@@ -52,10 +58,19 @@ export async function createApplication(options = {}) {
     const urls = localUrls(config.port);
     const host = req.hostname.replace(/^\[|\]$/g, '');
     if (isLocalAddress(host) && !['127.0.0.1','::1'].includes(host)) urls.unshift(`http://${req.headers.host}`);
-    res.json({ name: 'CasaCine', version: '1.0.0', categories,
+    res.json({ name: 'Palomita', version: '1.1.0', categories,
       urls: [...new Set(urls)], maxUploadBytes: config.maxUploadBytes, protected: access.required });
   });
   app.get('/api/device', (req, res) => res.json({ user: localIdentity(req.socket.remoteAddress) }));
+  app.get('/api/hub', async (_req, res) => {
+    const media = store.list(), disk = await statfs(config.dataDir);
+    res.json({ name: 'Guarida', version: '1.1.0', modules: homeModules,
+      cinema: { count: media.length, ready: media.filter(m => m.status === 'ready').length, bytes: media.reduce((sum,m) => sum + m.size,0) },
+      files: files.stats(), recentFiles: files.recent(),
+      storage: { totalBytes: disk.blocks * disk.bsize, availableBytes: disk.bavail * disk.bsize, usedBytes: (disk.blocks - disk.bfree) * disk.bsize } });
+  });
+  app.use('/api', createFilesRouter(config,files));
+  app.use('/api', createSubtitlesRouter(config,store,queue));
   app.get('/api/media', (_req, res) => res.json({ media: store.list().map(publicMedia) }));
 
   let activeUploads = 0;
@@ -140,11 +155,12 @@ export async function createApplication(options = {}) {
   });
   app.delete('/api/media/:id', async (req, res) => {
     const m = find(req);
-    if (m.status === 'processing') return res.status(409).json({ error: 'Espera a que termine la preparación antes de eliminarlo.' });
+    if (m.status === 'processing' || queue.isBusy(m.id)) return res.status(409).json({ error: 'Espera a que termine la preparación antes de eliminarlo.' });
     store.remove(m.id);
     for (const file of [originalPath(config, m), path.join(config.prepared, `${m.id}.mp4`), path.join(config.posters, `${m.id}.jpg`)]) {
       await rm(file, { force: true }).catch(() => console.warn('FILE_CLEANUP_FAILED'));
     }
+    await rm(path.join(config.subtitles,m.id),{ recursive: true, force: true });
     res.json({ ok: true });
   });
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Esta ruta no existe.' }));
@@ -158,7 +174,7 @@ export async function createApplication(options = {}) {
     app.use(express.static(build));
     app.get('/{*path}', (_req, res) => {
       if (existsSync(path.join(build, 'index.html'))) res.sendFile(path.join(build, 'index.html'));
-      else res.status(503).type('text').send('Ejecuta npm run build antes de iniciar CasaCine.');
+      else res.status(503).type('text').send('Ejecuta npm run build antes de iniciar Guarida.');
     });
   }
   app.use((error, _req, res, next) => {
@@ -170,9 +186,10 @@ export async function createApplication(options = {}) {
     if (error.status === 416) return res.status(416).end();
     if (error.status === 400) return res.status(400).json({ error: 'Solicitud inválida.' });
     if (error.status === 413) return res.status(413).json({ error: 'Solicitud demasiado grande.' });
+    if (error.code === 'ENOSPC') return res.status(507).json({ error: 'Disco de servidor está lleno. Libera espacio y reintenta.' });
     if (error.code === 'ENOENT') return res.status(404).json({ error: 'No encontramos este archivo en la PC.' });
     console.error('REQUEST_FAILED');
     res.status(500).json({ error: 'Algo falló en la PC. Intenta nuevamente.' });
   });
-  return { app, config, store, queue, async close() { await queue.close(); await vite?.close(); store.close(); } };
+  return { app, config, store, files, queue, async close() { await queue.close(); await vite?.close(); files.close(); store.close(); } };
 }

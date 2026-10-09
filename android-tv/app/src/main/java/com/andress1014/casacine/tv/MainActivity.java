@@ -63,9 +63,9 @@ public final class MainActivity extends Activity {
     }
     private void showConnection() {
         generation++; catalogue = false; busy = false; client = null; grid = null; identity = null; library.clear(); visible.clear(); signature = "";
-        LinearLayout root = screen(); root.addView(Ui.text(this,"casacine.  ▶",44,Ui.LIME,true)); Ui.space(root,14);
+        LinearLayout root = screen(); root.addView(Ui.text(this,"palomita.  ▶",44,Ui.LIME,true)); Ui.space(root,14);
         root.addView(Ui.text(this,"Tu casa tiene pantalla grande",27,Ui.TEXT,true)); Ui.space(root,12);
-        root.addView(Ui.text(this,"Enciende CasaCine en PC. Conecta TV al mismo Wi-Fi.",18,Ui.MUTED,false)); Ui.space(root,16);
+        root.addView(Ui.text(this,"Enciende Palomita en PC. Conecta TV al mismo Wi-Fi.",18,Ui.MUTED,false)); Ui.space(root,16);
         root.addView(Ui.text(this,DeviceIdentity.deviceName(this),16,Ui.MUTED,false));
         address = input(prefs.getString("server",""),"IP de PC: 192.168.1.50:3210",128);
         address.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
@@ -76,11 +76,11 @@ public final class MainActivity extends Activity {
         root.addView(Ui.text(this,"Sube videos desde PC o teléfono. Aquí usa control remoto.",14,Ui.MUTED,false)); controls.getChildAt(0).requestFocus();
     }
     private void discover() {
-        if (discovering) return; discovering = true; int request = generation; status.setText("Buscando CasaCine en Wi-Fi…");
+        if (discovering) return; discovering = true; int request = generation; status.setText("Buscando Palomita en Wi-Fi…");
         tasks.execute(() -> { List<String> servers = ServerClient.discover(); ui(() -> {
             discovering = false; if (request != generation || catalogue) return; results.removeAllViews();
             if (servers.size() == 1) { address.setText(servers.get(0)); connect(servers.get(0)); }
-            else if (servers.isEmpty()) status.setText("Sin detección automática. Escribe IP que muestra CasaCine en PC.");
+            else if (servers.isEmpty()) status.setText("Sin detección automática. Escribe IP que muestra Palomita en PC.");
             else { status.setText("Escoge PC de casa:"); for (String server : servers) results.addView(Ui.button(this,server,() -> connect(server))); }
         }); });
     }
@@ -112,7 +112,7 @@ public final class MainActivity extends Activity {
     }
     private void showCatalogue() {
         catalogue = true; LinearLayout root = screen(); LinearLayout heading = row();
-        heading.addView(Ui.text(this,"casacine.  ▶",32,Ui.LIME,true),new LinearLayout.LayoutParams(0,-2,1));
+        heading.addView(Ui.text(this,"palomita.  ▶",32,Ui.LIME,true),new LinearLayout.LayoutParams(0,-2,1));
         identity = Ui.text(this,"",14,Ui.MUTED,false); heading.addView(identity); root.addView(heading); updateIdentity(); Ui.space(root,10);
         LinearLayout actions = row(); button(actions,"Buscar",this::searchDialog); button(actions,"Actualizar",() -> refresh(true));
         button(actions,"☆ Favorito",this::toggleSelectedFavourite); button(actions,"Mi perfil",this::profile); button(actions,"Otra PC",this::showConnection); root.addView(actions); Ui.space(root,10);
@@ -134,7 +134,7 @@ public final class MainActivity extends Activity {
         tasks.execute(() -> {
             try {
                 List<Media> fetched = selected.library(); StringBuilder fingerprint = new StringBuilder();
-                for (Media item : fetched) fingerprint.append(item.id).append(item.status).append(item.title).append(item.category).append(item.description).append(item.addedBy).append(item.progress).append(item.hasPoster).append(item.duration);
+                for (Media item : fetched) fingerprint.append(item.id).append(item.status).append(item.title).append(item.category).append(item.description).append(item.addedBy).append(item.progress).append(item.hasPoster).append(item.posterVersion).append(item.duration);
                 String next = fingerprint.toString();
                 ui(() -> { if (request != generation) return; busy = false; if (!next.equals(signature)) { signature = next; library = fetched; applyFilter(); } else updateStatus(); });
             } catch (ServerClient.AccessRequired error) { ui(() -> { if (request == generation) { busy = false; askCode(selected); } }); }
@@ -149,7 +149,7 @@ public final class MainActivity extends Activity {
         List<Media> filtered = new ArrayList<>(); Set<String> stars = favourites(); String query = search.toLowerCase(Locale.ROOT);
         for (Media item : library) {
             if ("Favoritos".equals(filter) && !stars.contains(item.id)) continue;
-            if ("Seguir viendo".equals(filter) && !(position(item) > 5000 && position(item) < item.duration * 950)) continue;
+            if ("Seguir viendo".equals(filter) && !(position(item) > 5000 && position(item) < Math.max(0,item.duration * 1000 - 10000))) continue;
             if (!"Todo".equals(filter) && !"Favoritos".equals(filter) && !"Seguir viendo".equals(filter) && !filter.equals(item.category)) continue;
             if ((item.title + " " + item.description + " " + item.addedBy).toLowerCase(Locale.ROOT).contains(query)) filtered.add(item);
         }
@@ -157,7 +157,7 @@ public final class MainActivity extends Activity {
         for (int i = 0; i < visible.size(); i++) if (visible.get(i).id.equals(selectedId)) { selection = i; break; }
         if (!visible.isEmpty()) grid.setSelection(Math.min(selection,visible.size()-1));
         empty.setVisibility(visible.isEmpty() ? View.VISIBLE : View.GONE);
-        empty.setText(library.isEmpty() ? "Tu primera función empieza en PC. Sube videos desde CasaCine web." : "Todavía no hay historias en esta selección."); updateStatus();
+        empty.setText(library.isEmpty() ? "Tu primera función empieza en PC. Sube videos desde Palomita web." : "Todavía no hay historias en esta selección."); updateStatus();
     }
     private void updateStatus() { status.setText(filter + "  ·  " + visible.size() + " historias" + (search.isEmpty() ? "" : "  ·  “" + search + "”") + "  ·  " + client.base); }
     private void updateIdentity() { if (identity != null) identity.setText(prefs.getString("user-name","") + "  ·  " + DeviceIdentity.deviceName(this)); }
@@ -189,7 +189,7 @@ public final class MainActivity extends Activity {
             .setNegativeButton("Desde inicio",(d,w) -> play(item,true)).show();
     }
     private void play(Media item, boolean fromStart) {
-        if (!"ready".equals(item.status)) { toast("processing".equals(item.status) ? "PC está preparando video: " + item.progress + "%" : "Video necesita reintento desde CasaCine web."); return; }
+        if (!"ready".equals(item.status)) { toast("processing".equals(item.status) ? "PC está preparando video: " + item.progress + "%" : "Video necesita reintento desde Palomita web."); return; }
         Intent intent = new Intent(this,PlayerActivity.class); intent.putExtra("id",item.id); intent.putExtra("fromStart",fromStart); startActivity(intent);
     }
     private final class Cards extends BaseAdapter {
@@ -204,11 +204,11 @@ public final class MainActivity extends Activity {
             card.addView(image,new LinearLayout.LayoutParams(-1,Ui.dp(MainActivity.this,120)));
             TextView title = Ui.text(MainActivity.this,(favourites().contains(item.id) ? "♥  " : "") + item.title,17,Ui.TEXT,true); title.setMaxLines(1); title.setEllipsize(android.text.TextUtils.TruncateAt.END); card.addView(title);
             card.addView(Ui.text(MainActivity.this,item.category + " · " + item.length(),13,Ui.MUTED,false)); long time = position(item);
-            String caption = "ready".equals(item.status) ? time > 5000 && time < item.duration * 950 ? "Seguir desde " + (time / 60000) + " min" : item.addedBy : "processing".equals(item.status) ? "Preparando " + item.progress + "%" : "Revisar desde web";
+            String caption = "ready".equals(item.status) ? time > 5000 && time < Math.max(0,item.duration * 1000 - 10000) ? "Seguir desde " + (time / 60000) + " min" : item.addedBy : "processing".equals(item.status) ? "Preparando " + item.progress + "%" : "Revisar desde web";
             TextView foot = Ui.text(MainActivity.this,caption,12,Ui.MUTED,false); foot.setMaxLines(1); card.addView(foot);
             card.setLayoutParams(new AbsListView.LayoutParams(-1,Ui.dp(MainActivity.this,194))); card.setFocusable(false); card.setContentDescription(item.title + ", " + item.category + ", " + caption);
             if (item.hasPoster) {
-                ServerClient selected = client; String key = selected.base + ":" + item.id; Bitmap cached = posters.get(key); image.setTag(key);
+                ServerClient selected = client; String key = selected.base + ":" + item.id + ":" + item.posterVersion; Bitmap cached = posters.get(key); image.setTag(key);
                 if (cached != null) image.setImageBitmap(cached);
                 else tasks.execute(() -> {
                     Bitmap bitmap = posters.get(key); if (bitmap == null) try { bitmap = selected.poster(item.id); } catch (Exception ignored) { }

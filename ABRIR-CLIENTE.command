@@ -1,6 +1,6 @@
 #!/bin/sh
 cd "$(dirname "$0")" || exit 1
-printf 'Dirección CasaCine de PC servidor (192.168.1.50:3210): '
+printf 'Dirección Guarida de PC servidor (192.168.1.50:3210): '
 IFS= read -r casacine_address
 if ! command -v python3 >/dev/null 2>&1; then
   printf 'Necesitas Python 3 para este acceso; también puedes abrir dirección en navegador y elegir nombre.\n'

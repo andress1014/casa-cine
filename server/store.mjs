@@ -14,6 +14,11 @@ export function createStore(dataDir) {
       poster INTEGER NOT NULL DEFAULT 0, videoCodec TEXT NOT NULL DEFAULT '',
       audioCodec TEXT NOT NULL DEFAULT '', pixelFormat TEXT NOT NULL DEFAULT ''
     );`);
+  const columns = new Set(db.prepare('PRAGMA table_info(media)').all().map(c => c.name));
+  for (const [name,definition] of Object.entries({ subtitleTracks: "TEXT NOT NULL DEFAULT '[]'", subtitleWarnings: "TEXT NOT NULL DEFAULT '[]'", posterSource: 'TEXT', posterVersion: 'INTEGER NOT NULL DEFAULT 0', metadataVersion: 'INTEGER NOT NULL DEFAULT 0' })) {
+    if (!columns.has(name)) db.exec(`ALTER TABLE media ADD COLUMN ${name} ${definition}`);
+  }
+  const extras = db.prepare('UPDATE media SET subtitleTracks=?,subtitleWarnings=?,posterSource=?,posterVersion=posterVersion+1,metadataVersion=1 WHERE id=?');
   const insert = db.prepare(`INSERT INTO media
     (id,title,description,category,addedBy,originalName,extension,size,createdAt,duration,width,height,videoCodec,audioCodec,pixelFormat)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
@@ -32,6 +37,7 @@ export function createStore(dataDir) {
         state.error === undefined ? m.error : state.error, state.playable ?? m.playable,
         state.poster === undefined ? m.poster : Number(state.poster), id);
     },
+    extras(id, tracks, warnings, posterSource) { extras.run(JSON.stringify(tracks),JSON.stringify(warnings),posterSource,id); },
     edit(id, m) { updateMetadata.run(m.title,m.description,m.category,m.addedBy,id); },
     remove(id) { remove.run(id); },
     close() { db.close(); },
@@ -39,9 +45,9 @@ export function createStore(dataDir) {
 }
 
 export function publicMedia(m) {
-  const { extension, playable, poster, ...metadata } = m;
-  return { ...metadata, format: extension.slice(1).toUpperCase(),
-    posterUrl: poster ? `/api/media/${m.id}/poster` : null,
+  const { extension, playable, poster, subtitleTracks, subtitleWarnings, metadataVersion, ...metadata } = m;
+  return { ...metadata, subtitles: JSON.parse(subtitleTracks || '[]').map(track => ({ ...track, url: `/api/media/${m.id}/subtitles/${track.id}` })), subtitleWarnings: JSON.parse(subtitleWarnings || '[]'), format: extension.slice(1).toUpperCase(),
+    posterUrl: poster ? `/api/media/${m.id}/poster?v=${m.posterVersion || 0}` : null,
     streamUrl: m.status === 'ready' ? `/api/media/${m.id}/stream` : null,
     downloadUrl: `/api/media/${m.id}/download` };
 }

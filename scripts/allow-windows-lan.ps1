@@ -13,9 +13,9 @@ if (Test-Path $envFile) {
 if ($port -lt 1 -or $port -gt 65535) { throw 'PORT debe estar entre 1 y 65535.' }
 $name = "CasaCine-LAN-$port"
 if (-not (Get-NetFirewallRule -Name $name -ErrorAction SilentlyContinue)) {
-  New-NetFirewallRule -Name $name -DisplayName "CasaCine (red privada, puerto $port)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort $port -Profile Private -RemoteAddress LocalSubnet
+  New-NetFirewallRule -Name $name -DisplayName "Guarida (red privada, puerto $port)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort $port -Profile Private -RemoteAddress LocalSubnet
 }
 if (-not (Get-NetFirewallRule -Name 'CasaCine-Discovery' -ErrorAction SilentlyContinue)) {
-  New-NetFirewallRule -Name 'CasaCine-Discovery' -DisplayName 'CasaCine TV discovery (red privada)' -Direction Inbound -Action Allow -Protocol UDP -LocalPort 3211 -Profile Private -RemoteAddress LocalSubnet
+  New-NetFirewallRule -Name 'CasaCine-Discovery' -DisplayName 'Guarida TV discovery (red privada)' -Direction Inbound -Action Allow -Protocol UDP -LocalPort 3211 -Profile Private -RemoteAddress LocalSubnet
 }
-Write-Host "CasaCine permitido en red privada y subred local, puerto $port." -ForegroundColor Green
+Write-Host "Guarida permitida en red privada y subred local, puerto $port." -ForegroundColor Green

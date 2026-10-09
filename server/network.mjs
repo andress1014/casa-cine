@@ -28,15 +28,15 @@ export function localIdentity(remoteAddress = '') {
 }
 
 export function localOnly(req, res, next) {
-  if (!isLocalAddress(req.socket.remoteAddress)) return res.status(403).json({ error: 'CasaCine funciona dentro de tu red local.' });
+  if (!isLocalAddress(req.socket.remoteAddress)) return res.status(403).json({ error: 'Guarida funciona dentro de tu red local.' });
   let host;
   try { host = new URL(`http://${req.headers.host}`).hostname.replace(/^\[|\]$/g, ''); }
   catch { return res.status(400).json({ error: 'Dirección inválida.' }); }
   const computer = hostname().toLowerCase();
   if (!isLocalAddress(host) && !['localhost', computer, `${computer}.local`].includes(host.toLowerCase())) {
-    return res.status(403).json({ error: 'Usa la dirección local de CasaCine.' });
+    return res.status(403).json({ error: 'Usa la dirección local de Guarida.' });
   }
-  if (req.headers['sec-fetch-site'] === 'cross-site') return res.status(403).json({ error: 'Abre CasaCine directamente desde tu red.' });
+  if (req.headers['sec-fetch-site'] === 'cross-site') return res.status(403).json({ error: 'Abre Guarida directamente desde tu red.' });
   if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     const origin = req.headers.origin;
     if (origin && origin !== `http://${req.headers.host}` && origin !== `https://${req.headers.host}`) {

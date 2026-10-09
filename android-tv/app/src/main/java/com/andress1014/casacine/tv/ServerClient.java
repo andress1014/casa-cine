@@ -64,7 +64,7 @@ public final class ServerClient {
             }
             int status = request.getResponseCode();
             if (status == 401) throw new AccessRequired();
-            if (status < 200 || status >= 300) throw new Exception(status == 429 ? "Espera un minuto antes de volver a intentar." : "No pudimos conectar con CasaCine.");
+            if (status < 200 || status >= 300) throw new Exception(status == 429 ? "Espera un minuto antes de volver a intentar." : "No pudimos conectar con Palomita.");
             String received = request.getHeaderField("Set-Cookie");
             if (received != null) {
                 String cookie = received.split(";", 2)[0];
@@ -89,6 +89,8 @@ public final class ServerClient {
         }
         return result;
     }
+    public Media media(String id) throws Exception { validateId(id); return Media.fromJson(json("/api/media/" + id,null).getJSONObject("media")); }
+    public String subtitleUrl(String mediaId,String trackId) { validateId(mediaId); validateId(trackId); return base + "/api/media/" + mediaId + "/subtitles/" + trackId; }
     public Bitmap poster(String id) throws Exception {
         validateId(id);
         HttpURLConnection request = connection("/api/media/" + id + "/poster");

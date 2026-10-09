@@ -1,9 +1,11 @@
 export type Category = 'Películas' | 'Series' | 'En familia' | 'Recuerdos' | 'Otros';
+export type Subtitle = { id: string; label: string; language: string; forced: boolean; source: 'embedded' | 'external'; url: string };
 export type Media = {
   id: string; title: string; description: string; category: Category; addedBy: string;
   originalName: string; size: number; createdAt: string; duration: number;
   width: number; height: number; status: 'processing' | 'ready' | 'error'; progress: number;
   error: string | null; format: string; posterUrl: string | null; streamUrl: string | null;
+  subtitles: Subtitle[]; subtitleWarnings: string[]; posterVersion: number; posterSource: 'embedded' | 'frame' | null;
   downloadUrl: string; videoCodec: string; audioCodec: string;
 };
 export type System = { name: string; urls: string[]; categories: Category[]; maxUploadBytes: number; protected: boolean };
@@ -33,7 +35,7 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     if (response.status === 401) window.dispatchEvent(new Event('casacine:unauthorized'));
-    throw new Error(body.error || 'No pudimos conectar con la PC. Revisa que CasaCine esté abierto.');
+    throw new Error(body.error || 'No pudimos conectar con la PC. Revisa que Palomita esté abierto.');
   }
   return body;
 }

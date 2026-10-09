@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path -Parent $PSScriptRoot)
-Write-Host "`n  CasaCine - El mejor plan esta en casa`n" -ForegroundColor Green
+Write-Host "`n  Guarida - Tu casa conectada`n" -ForegroundColor Green
 
 if (-not (Get-Command node.exe -ErrorAction SilentlyContinue)) {
   Write-Host 'Instala Node.js LTS (version 24 o superior) desde https://nodejs.org/' -ForegroundColor Yellow
@@ -14,7 +14,7 @@ if ([int]$nodeVersion -lt 24) {
 }
 if (-not (Test-Path '.env')) { Copy-Item '.env.example' '.env' }
 if (-not (Test-Path 'node_modules/.package-lock.json')) {
-  Write-Host 'Preparando CasaCine. Primera vez necesita internet y puede tardar unos minutos...'
+  Write-Host 'Preparando Guarida. Primera vez necesita internet y puede tardar unos minutos...'
   & npm.cmd ci --registry=https://registry.npmjs.org/
   if ($LASTEXITCODE -ne 0) { throw 'No se pudieron instalar dependencias. Revisa conexion a internet.' }
 }

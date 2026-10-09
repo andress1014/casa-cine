@@ -160,3 +160,91 @@ test('catálogo y videos sobreviven reinicio del servidor', async () => {
   try { assert.equal(second.store.get(id).title,'Viaje familiar'); assert.equal(second.store.get(id).status,'ready'); }
   finally { await second.close(); await rm(first.dataDir,{recursive:true,force:true}); }
 });
+
+test('Guarida: carpetas, subidas, búsqueda literal, movimiento, descarga y borrado',async () => {
+  const s=await server();
+  try {
+    assert.equal((await fetch(`${s.base}/api/hub`)).status,200);
+    const folderResponse=await fetch(`${s.base}/api/folders`,{method:'POST',...json({name:'Documentos',parentId:null})}); assert.equal(folderResponse.status,201);
+    const folder=(await folderResponse.json()).folder;
+    assert.equal((await fetch(`${s.base}/api/folders`,{method:'POST',...json({name:'documentos',parentId:null})})).status,409);
+    const bytes=Buffer.from('Mis notas de casa 100% seguras.\n'); const data=new FormData();
+    for(const [key,value] of Object.entries({title:'Notas 100%',originalName:'notas.txt',addedBy:'Andres',folderId:folder.id})) data.append(key,value);
+    data.append('file',new Blob([bytes],{type:'text/plain'}),'notas.txt');
+    const upload=await fetch(`${s.base}/api/files`,{method:'POST',body:data}); assert.equal(upload.status,201); const file=(await upload.json()).file;
+    assert.equal(file.kind,'text'); assert.equal(file.sha256.length,64);
+    const list=await (await fetch(`${s.base}/api/files/search`,{method:'POST',...json({folder:'all',search:'100%',kind:'all',limit:60,offset:0})})).json(); assert.equal(list.total,1);
+    const absent=await (await fetch(`${s.base}/api/files/search`,{method:'POST',...json({folder:'root'})})).json(); assert.equal(absent.total,0);
+    assert.equal((await fetch(`${s.base}/api/folders/${folder.id}`,{method:'DELETE'})).status,409);
+    const download=await fetch(`${s.base}${file.downloadUrl}`); assert.equal(download.status,200); assert.match(download.headers.get('content-disposition'),/attachment/); assert.deepEqual(Buffer.from(await download.arrayBuffer()),bytes);
+    assert.equal((await fetch(`${s.base}/api/files/${file.id}`,{method:'PATCH',...json({title:'Notas renombradas',folderId:null})})).status,200);
+    assert.equal((await fetch(`${s.base}/api/folders/${folder.id}`,{method:'DELETE'})).status,200);
+    assert.equal((await fetch(`${s.base}/api/files/${file.id}`,{method:'DELETE'})).status,200);
+    assert.equal((await fetch(`${s.base}${file.downloadUrl}`)).status,404); assert.deepEqual(await readdir(s.config.documents),[]);
+  } finally { await s.close(); }
+});
+
+test('Archivos rechaza ejecutables disfrazados, rutas y contenido incompatible; código protege módulos',async () => {
+  const s=await server({maxFileUploadBytes:1024});
+  try {
+    for(const [name,content,expected] of [['fake.pdf','not PDF',415],['bad.txt','MZ executable',415],['virus.exe','executable',415],['large.txt','x'.repeat(2048),413]]) {
+      const data=new FormData(); for(const [key,value] of Object.entries({title:'Documento',originalName:name,addedBy:'Casa',folderId:''})) data.append(key,value);
+      data.append('file',new Blob([content],{type:'application/octet-stream'}),name);
+      assert.equal((await fetch(`${s.base}/api/files`,{method:'POST',body:data})).status,expected);
+    }
+    assert.equal((await fetch(`${s.base}/api/folders`,{method:'POST',...json({name:'../otra',parentId:null})})).status,400);
+    assert.deepEqual(await readdir(s.config.fileScratch),[]); assert.equal(s.files.stats().count,0);
+  } finally { await s.close(); }
+  const locked=await server({houseCode:'private-tests-only'});
+  try { for(const endpoint of ['/api/hub','/api/files/config','/api/folders']) assert.equal((await fetch(`${locked.base}${endpoint}`)).status,401); }
+  finally { await locked.close(); }
+});
+
+test('carátula MKV incrustada, subtítulos y dos audios sobreviven preparación',async () => {
+  const {writeFile}=await import('node:fs/promises');
+  const cover=path.join(fixtureDir,'cover.jpg'), subs=path.join(fixtureDir,'subtitle.srt'), movie=path.join(fixtureDir,'with-tracks.mkv');
+  await writeFile(subs,'1\n00:00:00,000 --> 00:00:01,100\nHola casa\n');
+  await exec(ffmpegPath,['-hide_banner','-loglevel','error','-y','-f','lavfi','-i','color=c=red:s=160x240','-frames:v','1',cover]);
+  await exec(ffmpegPath,['-hide_banner','-loglevel','error','-y','-i',path.join(fixtureDir,'sample.mp4'),'-i',subs,'-map','0:v:0','-map','0:a:0','-map','0:a:0','-map','1:s:0','-c:v','copy','-c:a','aac','-c:s','srt','-metadata:s:a:0','language=spa','-metadata:s:a:1','language=eng','-metadata:s:s:0','language=spa','-metadata:s:s:0','title=Español','-attach',cover,'-metadata:s:t:0','mimetype=image/jpeg','-metadata:s:t:0','filename=cover.jpg',movie]);
+  const s=await server();
+  try {
+    const upload=await fetch(`${s.base}/api/media`,{method:'POST',body:form(await readFile(movie),'with-tracks.mkv')}); assert.equal(upload.status,201);
+    const id=(await upload.json()).media.id; await s.queue.idle(); const media=(await (await fetch(`${s.base}/api/media/${id}`)).json()).media;
+    assert.equal(media.status,'ready'); assert.equal(media.posterSource,'embedded'); assert.equal(media.subtitles.length,1); assert.equal(media.subtitles[0].language,'spa');
+    const vtt=await fetch(`${s.base}${media.subtitles[0].url}`); assert.equal(vtt.status,200); assert.match(await vtt.text(),/WEBVTT[\s\S]*Hola casa/);
+    const {probe}=await import('../server/media.mjs'); const info=await probe(path.join(s.config.prepared,`${id}.mp4`)); assert.equal(info.streams.filter(stream=>stream.codec_type==='audio').length,2);
+    const rgb=await exec(ffmpegPath,['-hide_banner','-loglevel','error','-i',path.join(s.config.posters,`${id}.jpg`),'-vf','scale=1:1','-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','pipe:1'],{encoding:'buffer'}); assert.ok(rgb.stdout[0]>200 && rgb.stdout[1]<40 && rgb.stdout[2]<40);
+    assert.equal((await fetch(`${s.base}/api/media/${id}/subtitles/${media.subtitles[0].id}`,{method:'DELETE'})).status,409);
+  } finally { await s.close(); }
+});
+
+test('SRT externo se valida, convierte a VTT, conserva al refrescar y elimina sin tocar video',async () => {
+  const s=await server();
+  try {
+    const response=await fetch(`${s.base}/api/media`,{method:'POST',body:form(mp4)}), id=(await response.json()).media.id; await s.queue.idle();
+    const send=async(content,name='sub.srt') => { const body=new FormData(); body.append('label','Español'); body.append('language','es'); body.append('subtitle',new Blob([content],{type:'application/octet-stream'}),name); return fetch(`${s.base}/api/media/${id}/subtitles`,{method:'POST',body}); };
+    assert.equal((await send('1\n00:00:00,000 --> 00:00:01,100\nBuenos días\n')).status,201);
+    assert.equal((await send('not subtitle')).status,415); assert.equal((await send('x','virus.exe')).status,415);
+    assert.equal((await fetch(`${s.base}/api/media/${id}/metadata/refresh`,{method:'POST'})).status,202); await s.queue.idle();
+    const media=(await (await fetch(`${s.base}/api/media/${id}`)).json()).media; assert.equal(media.subtitles.length,1); assert.equal(media.posterSource,'frame');
+    assert.match(await (await fetch(`${s.base}${media.subtitles[0].url}`)).text(),/Buenos días/);
+    assert.equal((await fetch(`${s.base}${media.subtitles[0].url}`,{method:'DELETE'})).status,200); assert.equal((await fetch(`${s.base}${media.subtitles[0].url}`)).status,404);
+    assert.equal((await fetch(`${s.base}/api/media/${id}/stream`)).status,200); assert.deepEqual(await readdir(s.config.fileScratch),[]);
+  } finally { await s.close(); }
+});
+
+test('MP4 con imagen adjunta usa video real y prioriza carátula; catálogo anterior conserva audio al actualizar',async()=>{
+  const file=path.join(fixtureDir,'with-picture.mp4');
+  await exec(ffmpegPath,['-hide_banner','-loglevel','error','-y','-i',path.join(fixtureDir,'sample.mp4'),'-i',path.join(fixtureDir,'cover.jpg'),'-map','0:v:0','-map','0:a:0','-map','1:v:0','-c','copy','-disposition:v:1','attached_pic',file]);
+  const s=await server();
+  try {
+    const upload=await fetch(`${s.base}/api/media`,{method:'POST',body:form(await readFile(file),'with-picture.mp4')});assert.equal(upload.status,201);const id=(await upload.json()).media.id;await s.queue.idle();
+    const value=(await(await fetch(`${s.base}/api/media/${id}`)).json()).media;assert.equal(value.posterSource,'embedded');assert.equal(value.width,160);assert.equal(value.height,90);assert.ok(value.duration>1);
+    const second=await fetch(`${s.base}/api/media`,{method:'POST',body:form(await readFile(path.join(fixtureDir,'with-tracks.mkv')),'old.mkv')});const oldId=(await second.json()).media.id;await s.queue.idle();
+    const prepared=path.join(s.config.prepared,`${oldId}.mp4`),temporary=path.join(s.config.scratch,'legacy.mp4');
+    await exec(ffmpegPath,['-hide_banner','-loglevel','error','-y','-i',prepared,'-map','0:v:0','-map','0:a:0','-c','copy',temporary]);
+    const {rename}=await import('node:fs/promises');await rename(temporary,prepared);
+    const {probe}=await import('../server/media.mjs');assert.equal((await probe(prepared)).streams.filter(s=>s.codec_type==='audio').length,1);
+    s.queue.enqueueExtras(oldId);await s.queue.idle();assert.equal((await probe(prepared)).streams.filter(s=>s.codec_type==='audio').length,2);
+  } finally {await s.close();}
+});

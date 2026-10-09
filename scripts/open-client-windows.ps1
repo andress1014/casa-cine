@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$address = Read-Host 'Direccion CasaCine de PC servidor (ejemplo: 192.168.1.50:3210)'
+$address = Read-Host 'Direccion Guarida de PC servidor (ejemplo: 192.168.1.50:3210)'
 if ($address -notmatch '^http://') { $address = "http://$address" }
 $uri = [Uri]$address
 $ip = $null

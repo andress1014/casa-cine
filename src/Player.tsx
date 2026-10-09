@@ -10,6 +10,10 @@ export function Player({ media, saved, favourite, toggleFavourite, saveProgress,
 }) {
   const video = useRef<HTMLVideoElement>(null);
   const lastSaved = useRef(0);
+  const subtitleFile = useRef<HTMLInputElement>(null);
+  const [subtitle, setSubtitle] = useState('');
+  const [subtitleLanguage, setSubtitleLanguage] = useState('es');
+  const [subtitleBusy, setSubtitleBusy] = useState(false);
   const initialTime = useRef(saved?.time || 0);
   const [failed, setFailed] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -29,6 +33,21 @@ export function Player({ media, saved, favourite, toggleFavourite, saveProgress,
     if (force || Date.now() - lastSaved.current > 3000) {
       lastSaved.current = Date.now(); saveProgress(media.id, element.currentTime, element.duration || media.duration);
     }
+  }
+  useEffect(() => {
+    const element = video.current; if (!element) return;
+    const apply = () => { for (let i=0;i<element.textTracks.length;i++) element.textTracks[i].mode = (media.subtitles || [])[i]?.id === subtitle ? 'showing' : 'disabled'; };
+    apply(); element.textTracks.addEventListener('addtrack',apply); return () => element.textTracks.removeEventListener('addtrack',apply);
+  },[subtitle,media.subtitles]);
+  async function addSubtitle(file?: File) {
+    if (!file || subtitleBusy) return;
+    if (!/\.(srt|vtt)$/i.test(file.name) || file.size > 5 * 1024 ** 2) { notify('Usa SRT o VTT hasta 5 MB.'); return; }
+    setSubtitleBusy(true);
+    try {
+      const body = new FormData(); body.append('label',file.name.replace(/\.[^.]+$/,'').slice(0,80)); body.append('language',subtitleLanguage); body.append('subtitle',file);
+      await api(`/api/media/${media.id}/subtitles`,{ method: 'POST',body });
+      const result = await api<{ media: Media }>(`/api/media/${media.id}`); onChanged(result.media); notify('Subtítulos añadidos. También disponibles en TV.');
+    } catch (error) { notify((error as Error).message); } finally { setSubtitleBusy(false); if (subtitleFile.current) subtitleFile.current.value = ''; }
   }
   async function save() {
     setBusy(true);
@@ -50,7 +69,7 @@ export function Player({ media, saved, favourite, toggleFavourite, saveProgress,
       {media.status === 'ready' && media.streamUrl ? <video ref={video} src={media.streamUrl} controls autoPlay playsInline preload="metadata"
         poster={media.posterUrl || undefined} onError={() => setFailed(true)}
         onLoadedMetadata={() => { const v = video.current!; if (initialTime.current > 5 && initialTime.current < v.duration * 0.95) v.currentTime = initialTime.current; }}
-        onTimeUpdate={() => record()} onPause={() => record(true)} onEnded={() => record(true)} />
+        onTimeUpdate={() => record()} onPause={() => record(true)} onEnded={() => record(true)}>{(media.subtitles || []).map(track => <track key={track.id} kind="subtitles" src={track.url} srcLang={track.language} label={track.label} />)}</video>
         : <div className="player-wait"><MonitorPlay size={52} /><h3>{media.status === 'error' ? 'Necesita otra toma' : 'Preparando la función'}</h3><p>{media.error || 'Adaptamos el video para que puedas verlo en cualquier pantalla.'}</p>{media.status === 'processing' && <><div className="player-progress"><span style={{ width: `${Math.max(4, media.progress)}%` }} /></div><small>{media.progress ? `${media.progress}%` : 'En cola o generando miniatura…'}</small></>}</div>}
     </div>
     {failed && <p className="inline-error" role="alert">Este navegador no pudo reproducir el video. Prueba otro navegador o descarga el original para abrirlo con VLC.</p>}
@@ -66,6 +85,12 @@ export function Player({ media, saved, favourite, toggleFavourite, saveProgress,
         <button className="icon-button" aria-label="Editar información" title="Editar información" onClick={() => setEditing(!editing)}><Pencil size={18} /></button>
         {media.status !== 'processing' && <button className="icon-button danger" disabled={busy} title="Eliminar para toda la casa" aria-label="Eliminar video" onClick={() => void remove()}><Trash2 size={18} /></button>}
       </div>
+      {media.status === 'ready' && <><div className="subtitle-tools"><label>Subtítulos<select aria-label="Subtítulos" value={subtitle} onChange={event => setSubtitle(event.target.value)}><option value="">Desactivados</option>{(media.subtitles || []).map(track => <option key={track.id} value={track.id}>{track.label} · {track.language}</option>)}</select></label>
+        <label>Idioma de archivo<select aria-label="Idioma de subtítulos a subir" value={subtitleLanguage} onChange={event => setSubtitleLanguage(event.target.value)}><option value="es">Español</option><option value="en">Inglés</option><option value="pt">Portugués</option><option value="und">Otro</option></select></label>
+        <button className="button secondary" disabled={subtitleBusy} onClick={() => subtitleFile.current?.click()}>{subtitleBusy ? 'Añadiendo…' : 'Añadir SRT / VTT'}</button><input type="file" ref={subtitleFile} hidden accept=".srt,.vtt" onChange={event => void addSubtitle(event.target.files?.[0])} />
+        <button className="button secondary" onClick={() => { void api(`/api/media/${media.id}/metadata/refresh`,{ method: 'POST' }).then(() => notify('Buscando carátula y subtítulos dentro de video…')).catch(error => notify(error.message)); }}>Actualizar carátula y pistas</button>
+        {subtitle && media.subtitles?.find(track => track.id === subtitle)?.source === 'external' && <button className="button secondary" onClick={() => { if (window.confirm('¿Eliminar esta pista de subtítulos para toda casa?')) void api(`/api/media/${media.id}/subtitles/${subtitle}`,{ method: 'DELETE' }).then(async () => { setSubtitle(''); onChanged((await api<{ media: Media }>(`/api/media/${media.id}`)).media); }).catch(error => notify(error.message)); }}>Eliminar pista</button>}</div>
+        <p className="subtitle-note">Subtítulos incrustados de texto y SRT/VTT. Audio e idiomas disponibles desde reproductor de TV. {media.posterSource === 'embedded' ? 'Carátula tomada de archivo original.' : 'Vista previa tomada de video.'}</p>{media.subtitleWarnings?.map((message,index) => <p className="subtitle-note" key={index}>{message}</p>)}</>}
       {media.status === 'error' && <button className="button primary" onClick={() => { void api<{ media: Media }>(`/api/media/${media.id}/retry`, { method: 'POST' }).then(result => onChanged(result.media)).catch(error => notify(error.message)); }}><RotateCcw size={17} /> Volver a preparar</button>}
       {editing && <form className="edit-form" onSubmit={event => { event.preventDefault(); void save(); }}>
         <label className="form-label">Título<input required value={title} maxLength={160} onChange={e => setTitle(e.target.value)} /></label>

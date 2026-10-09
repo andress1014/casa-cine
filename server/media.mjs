@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { prepareExtras } from './media-extras.mjs';
 import ffmpegBinary from 'ffmpeg-static';
 import ffprobeBinary from 'ffprobe-static';
 
@@ -12,7 +13,7 @@ export function originalPath(config, m) {
   return path.join(config.originals, `${m.id}${m.extension}`);
 }
 
-function run(binary, args, { onProgress, signal, timeout = 0 } = {}) {
+export function run(binary, args, { onProgress, signal, timeout = 0 } = {}) {
   return new Promise((resolve, reject) => {
     if (!binary) return reject(new Error('PROCESS_UNAVAILABLE'));
     const child = spawn(binary, args, { shell: false, windowsHide: true, signal,
@@ -40,26 +41,26 @@ function run(binary, args, { onProgress, signal, timeout = 0 } = {}) {
 
 export async function probe(file) {
   const output = await run(ffprobePath, ['-v', 'error', '-protocol_whitelist', 'file,pipe', '-format_whitelist', formats,
-    '-show_entries', 'format=duration,format_name:stream=codec_type,codec_name,width,height,duration,pix_fmt',
+    '-show_entries', 'format=duration,format_name:stream=index,codec_type,codec_name,width,height,duration,pix_fmt,extradata_size:stream_disposition=attached_pic,forced,default:stream_tags=language,title,filename,mimetype',
     '-of', 'json', file], { timeout: 60_000 });
   const info = JSON.parse(output);
-  const video = info.streams?.find(s => s.codec_type === 'video');
+  const video = info.streams?.find(s => s.codec_type === 'video' && !s.disposition?.attached_pic);
   const audios = info.streams?.filter(s => s.codec_type === 'audio') || [];
   if (!video || !video.width || !video.height) throw new Error('INVALID_VIDEO');
   const duration = Number(info.format?.duration || video.duration || 0);
   return { duration: Number.isFinite(duration) ? Math.max(0, duration) : 0,
     width: video.width, height: video.height, videoCodec: video.codec_name || '',
-    audioCodec: audios.map(a => a.codec_name).join(','), pixelFormat: video.pix_fmt || '' };
+    audioCodec: audios.map(a => a.codec_name).join(','), pixelFormat: video.pix_fmt || '', videoIndex: video.index, streams: info.streams || [] };
 }
 
 export function createMediaQueue(config, store) {
-  const pending = new Set();
-  let running = false, stopped = false, controller;
+  const pending = new Map();
+  let running = false, stopped = false, controller, currentId;
   const waiter = [];
 
-  async function prepare(id) {
+  async function prepare(id, metadataOnly = false) {
     const m = store.get(id);
-    if (!m || m.status !== 'processing') return;
+    if (!m || (metadataOnly ? m.status !== 'ready' : m.status !== 'processing')) return;
     const source = originalPath(config, m);
     const destination = path.join(config.prepared, `${id}.mp4`);
     const partial = path.join(config.scratch, `${id}.mp4`);
@@ -67,6 +68,20 @@ export function createMediaQueue(config, store) {
     const signal = controller.signal;
     try {
       await stat(source);
+      const info = await probe(source);
+      if (metadataOnly) {
+        // Upgrade old prepared files that kept only first audio; copy video without re-encoding.
+        if (m.playable === 'prepared' && info.streams.filter(s => s.codec_type === 'audio').length > 1) {
+          const preparedInfo = await probe(destination);
+          if (preparedInfo.streams.filter(s => s.codec_type === 'audio').length < info.streams.filter(s => s.codec_type === 'audio').length) {
+            await run(ffmpegPath,['-hide_banner','-loglevel','error','-nostdin','-y','-protocol_whitelist','file,pipe','-format_whitelist',formats,'-i',destination,
+              '-protocol_whitelist','file,pipe','-format_whitelist',formats,'-i',source,'-map',`0:${preparedInfo.videoIndex}`,'-map','1:a?',
+              '-c:v','copy','-c:a','aac','-b:a','160k','-sn','-dn','-movflags','+faststart',partial],{ signal });
+            await rename(partial,destination);
+          }
+        }
+        await prepareExtras(config,store,m,info,signal); return;
+      }
       // H.264 + AAC in MP4 is broadly playable on browsers and Android TV.
       const compatibleH264 = m.videoCodec === 'h264' && m.pixelFormat === 'yuv420p';
       const direct = ['.mp4', '.m4v'].includes(m.extension) && compatibleH264
@@ -75,7 +90,7 @@ export function createMediaQueue(config, store) {
       if (!direct) {
         let lastProgress = 0;
         const args = ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
-          '-protocol_whitelist', 'file,pipe', '-format_whitelist', formats, '-i', source, '-map', '0:v:0', '-map', '0:a:0?',
+          '-protocol_whitelist', 'file,pipe', '-format_whitelist', formats, '-i', source, '-map', `0:${info.videoIndex}`, '-map', '0:a?',
           '-sn', '-dn'];
         if (compatibleH264) args.push('-c:v', 'copy');
         else args.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
@@ -89,18 +104,13 @@ export function createMediaQueue(config, store) {
         await rename(partial, destination);
         playable = 'prepared';
       }
-      let poster = false;
-      try {
-        await run(ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
-          '-protocol_whitelist', 'file,pipe', '-format_whitelist', formats, '-ss', String(Math.min(m.duration * 0.2, 30)),
-          '-i', source, '-frames:v', '1', '-vf', 'scale=720:-2', '-q:v', '3',
-          path.join(config.posters, `${id}.jpg`)], { signal, timeout: 30_000 });
-        poster = true;
-      } catch { /* A missing thumbnail must not prevent playback. */ }
+      let poster = Boolean(m.poster);
+      try { poster = await prepareExtras(config,store,m,info,signal); }
+      catch { if (!stopped) store.extras(id,JSON.parse(m.subtitleTracks || '[]'),['No pudimos obtener carátula o subtítulos. Puedes actualizar pistas desde reproductor.'],m.posterSource || null); }
       if (!stopped) store.state(id, { status: 'ready', progress: 100, error: null, playable, poster });
     } catch {
       await rm(partial, { force: true }).catch(() => {});
-      if (!stopped) store.state(id, { status: 'error', progress: 0,
+      if (!stopped && !metadataOnly) store.state(id, { status: 'error', progress: 0,
         error: 'No pudimos preparar este video. Verifica el archivo y vuelve a intentar.' });
     } finally { controller = undefined; }
   }
@@ -109,15 +119,17 @@ export function createMediaQueue(config, store) {
     if (running || stopped) return;
     running = true;
     while (pending.size && !stopped) {
-      const id = pending.values().next().value;
+      const [id, metadataOnly] = pending.entries().next().value;
       pending.delete(id);
-      await prepare(id);
+      currentId = id; await prepare(id,metadataOnly); currentId = undefined;
     }
     running = false;
     if (!stopped) waiter.splice(0).forEach(resolve => resolve());
   }
   return {
-    enqueue(id) { if (!stopped) { pending.add(id); void drain(); } },
+    enqueue(id) { if (!stopped) { pending.set(id,false); void drain(); } },
+    enqueueExtras(id) { if (!stopped) { pending.set(id,true); void drain(); } },
+    isBusy(id) { return currentId === id || pending.has(id); },
     idle() { return running ? new Promise(resolve => waiter.push(resolve)) : Promise.resolve(); },
     async close() {
       stopped = true; pending.clear(); controller?.abort();

@@ -15,3 +15,8 @@ android-tv/local.properties
 *.keystore
 *.jks
 releases/
+
+# Instrucciones locales fuera de código compartido.
+AGENTS.md
+.agents/
+.agent/

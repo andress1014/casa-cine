@@ -1,6 +1,6 @@
 {
   "name": "casa-cine",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Tu videoclub privado en casa. Sube, comparte y reproduce videos en tu red local.",
