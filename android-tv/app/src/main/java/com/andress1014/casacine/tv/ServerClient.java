@@ -13,6 +13,9 @@ import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.text.Normalizer;
+import java.util.Locale;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -94,6 +97,9 @@ public final class ServerClient {
     public Bitmap poster(String id) throws Exception {
         validateId(id);
         HttpURLConnection request = connection("/api/media/" + id + "/poster");
+        return bitmap(request,720);
+    }
+    private Bitmap bitmap(HttpURLConnection request,int width) throws Exception {
         try {
             if (request.getResponseCode() != 200) return null;
             byte[] image = read(request.getInputStream(), 2 * 1024 * 1024);
@@ -101,8 +107,61 @@ public final class ServerClient {
             BitmapFactory.decodeByteArray(image, 0, image.length, bounds);
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0 || bounds.outWidth > 4096 || bounds.outHeight > 4096) return null;
             BitmapFactory.Options options = new BitmapFactory.Options(); options.inSampleSize = 1;
-            while (bounds.outWidth / options.inSampleSize > 720) options.inSampleSize *= 2;
+            while (bounds.outWidth / options.inSampleSize > width) options.inSampleSize *= 2;
             return BitmapFactory.decodeByteArray(image, 0, image.length, options);
+        } finally { request.disconnect(); }
+    }
+    public Bitmap artwork(Media media) {
+        if (media.hasBackdrop) {
+            try { Bitmap image = bitmap(connection("/api/media/" + media.id + "/backdrop"),1280); if (image != null) return image; }
+            catch (Exception ignored) { }
+        }
+        if (media.hasPoster && !"frame".equals(media.posterSource)) {
+            try { Bitmap image = poster(media.id); if (image != null) return image; }
+            catch (Exception ignored) { }
+        }
+        // Personal APK contains read-only key at build time. Home videos keep local artwork.
+        if (!BuildConfig.TMDB_API_KEY.isEmpty() && ("Películas".equals(media.category) || "Series".equals(media.category))) {
+            Bitmap image = tmdbArtwork(media); if (image != null) return image;
+        }
+        if (media.hasPoster) { try { return poster(media.id); } catch (Exception ignored) { } }
+        return null;
+    }
+    private Bitmap tmdbArtwork(Media media) {
+        try {
+            JSONObject detail;
+            if (media.tmdbId > 0) detail = tmdb(media.tmdbType + "/" + media.tmdbId,"");
+            else {
+                String query = media.title.replaceAll("[._]"," ").replaceAll("\\b(?:19|20)[0-9]{2}\\b.*$","")
+                    .replaceAll("(?i)\\b(?:2160p|1080p|720p|480p|bluray|brrip|webrip|web dl|h264|h265|x264|x265)\\b.*$","").trim();
+                if (query.isEmpty()) return null;
+                boolean series = "Series".equals(media.category);
+                JSONArray results = tmdb("search/" + (series ? "tv" : "movie"),"&include_adult=false&query=" + URLEncoder.encode(query,"UTF-8")).optJSONArray("results");
+                if (results == null) return null; detail = null; int matches = 0;
+                for (int i=0;i<Math.min(results.length(),20);i++) {
+                    JSONObject result = results.optJSONObject(i); if (result == null) continue;
+                    if (normalized(query).equals(normalized(result.optString(series ? "name" : "title"))) || normalized(query).equals(normalized(result.optString(series ? "original_name" : "original_title")))) { matches++; detail = result; }
+                }
+                if (matches != 1 || detail == null) return null;
+            }
+            String image = detail.optString("backdrop_path","");
+            boolean backdrop = image.matches("/[a-zA-Z0-9]+\\.jpg");
+            if (!image.matches("/[a-zA-Z0-9]+\\.jpg")) image = detail.optString("poster_path","");
+            if (!image.matches("/[a-zA-Z0-9]+\\.jpg")) return null;
+            HttpURLConnection request = (HttpURLConnection)new URL("https://image.tmdb.org/t/p/" + (backdrop ? "w1280" : "w500") + image).openConnection();
+            request.setConnectTimeout(7000); request.setReadTimeout(12000); request.setInstanceFollowRedirects(false);
+            return bitmap(request,1280);
+        } catch (Exception ignored) { return null; }
+    }
+    private static String normalized(String value) {
+        return Normalizer.normalize(value,Normalizer.Form.NFD).replaceAll("\\p{M}","").toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+"," ").trim();
+    }
+    private JSONObject tmdb(String endpoint,String query) throws Exception {
+        HttpURLConnection request = (HttpURLConnection)new URL("https://api.themoviedb.org/3/" + endpoint + "?language=es-ES&api_key=" + BuildConfig.TMDB_API_KEY + query).openConnection();
+        request.setInstanceFollowRedirects(false); request.setConnectTimeout(7000); request.setReadTimeout(12000); request.setRequestProperty("Accept","application/json");
+        try {
+            if (request.getResponseCode() != 200) throw new Exception("TMDb no disponible.");
+            return new JSONObject(new String(read(request.getInputStream(),2*1024*1024),StandardCharsets.UTF_8));
         } finally { request.disconnect(); }
     }
     public static List<String> discover() {

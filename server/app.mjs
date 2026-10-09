@@ -12,6 +12,9 @@ import { localOnly, localUrls, isLocalAddress, createAccess, localIdentity } fro
 import { createFileStore } from './file-store.mjs';
 import { createFilesRouter } from './files.mjs';
 import { createSubtitlesRouter } from './subtitles.mjs';
+import { createGameStore } from './game-store.mjs';
+import { createGamingRouter, emulatorRoot } from './gaming.mjs';
+import { createMovieMetadataRouter } from './movie-metadata.mjs';
 import homeModules from '../shared/home-modules.json' with { type: 'json' };
 
 const extensions = ['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.avi', '.mpeg', '.mpg', '.wmv', '.ts'];
@@ -27,11 +30,14 @@ export async function createApplication(options = {}) {
   const config = makeConfig(options);
   const store = createStore(config.dataDir);
   const files = createFileStore(config.dataDir);
+  const games = createGameStore(config.dataDir);
   const queue = createMediaQueue(config, store);
+  const movieMetadata = createMovieMetadataRouter(config,store,queue);
   const access = createAccess(config.houseCode);
   // A crashed upload is never visible in the library. Recover interrupted conversions.
   for (const filename of await readdir(config.scratch)) await rm(path.join(config.scratch, filename), { force: true });
   for (const filename of await readdir(config.fileScratch)) await rm(path.join(config.fileScratch, filename), { force: true });
+  for (const filename of await readdir(config.gameScratch)) await rm(path.join(config.gameScratch, filename), { force: true });
   for (const m of store.list()) { if (m.status === 'processing') queue.enqueue(m.id); else if (m.status === 'ready' && !m.metadataVersion) queue.enqueueExtras(m.id); }
   const app = express();
   app.disable('x-powered-by');
@@ -39,8 +45,11 @@ export async function createApplication(options = {}) {
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'same-origin');
-    res.setHeader('X-Frame-Options', 'DENY');
-    if (!config.dev) res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+    const player = req.path === '/gaming-player/player.html' || req.path.startsWith('/emulatorjs/');
+    res.setHeader('X-Frame-Options', player ? 'SAMEORIGIN' : 'DENY');
+    if (!config.dev || player) res.setHeader('Content-Security-Policy', player
+      ? "default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+      : "default-src 'self'; script-src 'self'; frame-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
     next();
   });
   app.use(express.json({ limit: '16kb' }));
@@ -58,19 +67,22 @@ export async function createApplication(options = {}) {
     const urls = localUrls(config.port);
     const host = req.hostname.replace(/^\[|\]$/g, '');
     if (isLocalAddress(host) && !['127.0.0.1','::1'].includes(host)) urls.unshift(`http://${req.headers.host}`);
-    res.json({ name: 'Palomita', version: '1.1.0', categories,
+    res.json({ name: 'Palomita', version: '1.2.1', categories,
       urls: [...new Set(urls)], maxUploadBytes: config.maxUploadBytes, protected: access.required });
   });
   app.get('/api/device', (req, res) => res.json({ user: localIdentity(req.socket.remoteAddress) }));
   app.get('/api/hub', async (_req, res) => {
     const media = store.list(), disk = await statfs(config.dataDir);
-    res.json({ name: 'Guarida', version: '1.1.0', modules: homeModules,
+    res.json({ name: 'Guarida', version: '1.2.1', modules: homeModules,
       cinema: { count: media.length, ready: media.filter(m => m.status === 'ready').length, bytes: media.reduce((sum,m) => sum + m.size,0) },
       files: files.stats(), recentFiles: files.recent(),
+      gaming: games.stats(),
       storage: { totalBytes: disk.blocks * disk.bsize, availableBytes: disk.bavail * disk.bsize, usedBytes: (disk.blocks - disk.bfree) * disk.bsize } });
   });
   app.use('/api', createFilesRouter(config,files));
   app.use('/api', createSubtitlesRouter(config,store,queue));
+  app.use('/api', createGamingRouter(config,games));
+  app.use('/api', movieMetadata);
   app.get('/api/media', (_req, res) => res.json({ media: store.list().map(publicMedia) }));
 
   let activeUploads = 0;
@@ -147,8 +159,12 @@ export async function createApplication(options = {}) {
   });
   app.get('/api/media/:id/poster', (req, res, next) => {
     const m = find(req);
-    if (!m.poster) return res.status(404).end();
-    res.sendFile(path.join(config.posters, `${m.id}.jpg`), { cacheControl: false }, error => { if (error) next(error); });
+    if (!m.poster && !m.artworkPoster) return res.status(404).end();
+    res.sendFile(path.join(config.posters, m.artworkPoster || `${m.id}.jpg`), { cacheControl: false }, error => { if (error) next(error); });
+  });
+  app.get('/api/media/:id/backdrop', (req,res,next) => {
+    const m = find(req); if (!m.artworkBackdrop) return res.status(404).end();
+    res.sendFile(path.join(config.posters,m.artworkBackdrop),{ cacheControl: false },e => { if (e) next(e); });
   });
   app.get('/api/media/:id/download', (req, res, next) => {
     const m = find(req); res.download(originalPath(config, m), m.originalName, error => { if (error) next(error); });
@@ -157,13 +173,16 @@ export async function createApplication(options = {}) {
     const m = find(req);
     if (m.status === 'processing' || queue.isBusy(m.id)) return res.status(409).json({ error: 'Espera a que termine la preparación antes de eliminarlo.' });
     store.remove(m.id);
-    for (const file of [originalPath(config, m), path.join(config.prepared, `${m.id}.mp4`), path.join(config.posters, `${m.id}.jpg`)]) {
+    for (const file of [originalPath(config, m), path.join(config.prepared, `${m.id}.mp4`), path.join(config.posters, `${m.id}.jpg`),
+      ...[m.artworkPoster,m.artworkBackdrop].filter(Boolean).map(f => path.join(config.posters,f))]) {
       await rm(file, { force: true }).catch(() => console.warn('FILE_CLEANUP_FAILED'));
     }
     await rm(path.join(config.subtitles,m.id),{ recursive: true, force: true });
     res.json({ ok: true });
   });
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Esta ruta no existe.' }));
+  app.use('/emulatorjs',access.guard,express.static(emulatorRoot,{ index: false, dotfiles: 'deny', immutable: true, maxAge: '1y' }));
+  app.use('/emulatorjs',(_req,res) => res.status(404).end());
   let vite;
   if (config.dev) {
     const { createServer } = await import('vite');
@@ -191,5 +210,6 @@ export async function createApplication(options = {}) {
     console.error('REQUEST_FAILED');
     res.status(500).json({ error: 'Algo falló en la PC. Intenta nuevamente.' });
   });
-  return { app, config, store, files, queue, async close() { await queue.close(); await vite?.close(); files.close(); store.close(); } };
+  movieMetadata.startMetadata();
+  return { app, config, store, files, games, queue, async close() { await movieMetadata.closeMetadata(); await queue.close(); await vite?.close(); games.close(); files.close(); store.close(); } };
 }

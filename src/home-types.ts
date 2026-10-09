@@ -7,7 +7,7 @@ export type Folder = { id: string; name: string; parentId: string | null; create
 export type HomeFile = { id: string; title: string; originalName: string; extension: string; kind: 'document' | 'image' | 'archive' | 'text'; size: number;
   addedBy: string; createdAt: string; sha256: string; folderId: string | null; downloadUrl: string };
 export type Hub = { name: string; version: string; cinema: { count: number; ready: number; bytes: number };
-  files: { count: number; bytes: number; folders: number }; recentFiles: HomeFile[];
+  files: { count: number; bytes: number; folders: number }; gaming: { count: number; bytes: number }; recentFiles: HomeFile[];
   storage: { totalBytes: number; availableBytes: number; usedBytes: number } };
 export function folderPath(id: string | null, folders: Folder[]): string {
   const names: string[] = []; let current = id;

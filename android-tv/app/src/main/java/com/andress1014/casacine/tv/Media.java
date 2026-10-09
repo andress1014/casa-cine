@@ -11,6 +11,9 @@ public final class Media {
     public int progress;
     public long posterVersion;
     public boolean hasPoster;
+    public boolean hasBackdrop;
+    public int tmdbId;
+    public String tmdbType,posterSource;
     public final List<Subtitle> subtitles = new ArrayList<>();
     public static final class Subtitle {
         public String id,language,label;
@@ -24,6 +27,9 @@ public final class Media {
         media.duration = value.optDouble("duration", 0); media.progress = value.optInt("progress", 0);
         media.posterVersion = Math.max(0,value.optLong("posterVersion",0));
         media.hasPoster = value.has("posterUrl") && !value.isNull("posterUrl");
+        media.hasBackdrop = value.has("backdropUrl") && !value.isNull("backdropUrl");
+        media.tmdbId = Math.max(0,value.optInt("tmdbId",0)); media.tmdbType = "tv".equals(value.optString("tmdbType")) ? "tv" : "movie";
+        media.posterSource = value.optString("posterSource","");
         JSONArray tracks = value.optJSONArray("subtitles");
         if (tracks != null) for (int i=0;i<Math.min(tracks.length(),24);i++) {
             JSONObject track = tracks.optJSONObject(i); if (track == null) continue;

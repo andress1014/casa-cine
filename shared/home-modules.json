@@ -1,5 +1,29 @@
 [
-  { "id": "cinema", "path": "/cine", "name": "Palomita", "eyebrow": "PALOMITAS Y BUENOS PLANES", "description": "Películas, series y recuerdos. Tu videoclub también vive en TV.", "status": "active", "color": "lime" },
-  { "id": "files", "path": "/archivos", "name": "Archivos", "eyebrow": "CADA COSA EN SU RINCÓN", "description": "Documentos, fotos y archivos de casa. Organiza, comparte y descarga.", "status": "active", "color": "blue" },
-  { "id": "gaming", "path": "/gaming", "name": "Gaming", "eyebrow": "PRÓXIMA PARTIDA", "description": "Un rincón para tu colección de juegos y aventuras retro.", "status": "planned", "color": "peach" }
+  {
+    "id": "cinema",
+    "path": "/cine",
+    "name": "Palomita",
+    "eyebrow": "PALOMITAS Y BUENOS PLANES",
+    "description": "Películas, series y recuerdos. Tu videoclub también vive en TV.",
+    "status": "active",
+    "color": "lime"
+  },
+  {
+    "id": "files",
+    "path": "/archivos",
+    "name": "Archivos",
+    "eyebrow": "CADA COSA EN SU RINCÓN",
+    "description": "Documentos, fotos y archivos de casa. Organiza, comparte y descarga.",
+    "status": "active",
+    "color": "blue"
+  },
+  {
+    "id": "gaming",
+    "path": "/gaming",
+    "name": "Gaming",
+    "eyebrow": "OTRA VIDA, OTRA PARTIDA",
+    "description": "Clásicos, controles y partidas que viajan contigo. Tu rincón retro vive en casa.",
+    "status": "active",
+    "color": "peach"
+  }
 ]

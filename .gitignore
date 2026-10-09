@@ -20,3 +20,9 @@ releases/
 AGENTS.md
 .agents/
 .agent/
+
+# Motor descargado desde release oficial; claves HTTPS locales.
+vendor/emulatorjs/
+*.pem
+android-tv/local-secrets.properties
+personal-settings.json

@@ -51,7 +51,7 @@ export function Home({ hub, media, name, protectedAccess, onNavigate, onPlay, on
       <div className="home-module-grid">{modules.map(module => { const Icon = icons[module.id as keyof typeof icons]; return <button key={module.id} className={`home-module module-${module.color}`} onClick={() => onNavigate(module.id as Section)}>
         <div className="module-card-top"><span className="module-icon"><Icon size={27} /></span><span className={`module-status ${module.status === 'planned' ? 'planned' : ''}`}>{module.status === 'active' ? 'Disponible' : 'Próxima etapa'}</span></div>
         <span className="module-eyebrow">{module.eyebrow}</span><h3>{module.name}<ArrowUpRight size={24} /></h3><p>{module.description}</p>
-        <span className="module-card-bottom">{module.id === 'cinema' ? `${hub?.cinema.ready ?? movies.length} videos listos` : module.id === 'files' ? `${hub?.files.folders ?? 0} carpetas · documentos, fotos y más` : 'Vamos a construirlo a tu manera'}<ArrowRight size={17} /></span>
+        <span className="module-card-bottom">{module.id === 'cinema' ? `${hub?.cinema.ready ?? movies.length} videos listos` : module.id === 'files' ? `${hub?.files.folders ?? 0} carpetas · documentos, fotos y más` : `${hub?.gaming?.count ?? 0} juegos · tu próxima aventura`}<ArrowRight size={17} /></span>
       </button>; })}</div></section>
 
     <div className="home-bottom-grid"><section className="home-activity"><div className="home-small-heading"><h3><Clock3 size={17} /> Lo último que llegó</h3><button onClick={() => onNavigate('files')}>Ver archivos <ArrowRight size={14} /></button></div>
@@ -65,11 +65,4 @@ export function Home({ hub, media, name, protectedAccess, onNavigate, onPlay, on
         : <button className="home-cinema-upload" onClick={onUpload}><Film size={32} /><span>Trae película para todos <ArrowUpRight size={16} /></span></button>}</section>
     <footer className="home-footer"><span>guarida<span>.</span> <small>Tu casa tiene su propio universo.</small></span><span>Hecho para crecer contigo <Sparkles size={14} /></span></footer>
   </div>;
-}
-
-export function Gaming({ onNavigate }: { onNavigate: (section: Section) => void }) {
-  return <section className="gaming-page"><span className="gaming-emblem"><Gamepad2 size={66} strokeWidth={1.4} /></span><span className="section-eyebrow">PRÓXIMA ETAPA DE TU GUARIDA</span>
-    <h1>Presiona <span>futuro</span><br />para continuar.</h1><p>Aquí construiremos tu rincón gaming: colección de juegos, aventuras retro y esos clásicos que siempre merecen otra partida.</p>
-    <div className="gaming-plan"><h2>Primero escogemos cómo jugar</h2><div><span>01</span><p>Biblioteca de juegos organizada por consola.</p></div><div><span>02</span><p>Archivos propios, carátulas y descargas desde casa.</p></div><div><span>03</span><p>Reproducción o emulación, cuando definamos dispositivos y formatos.</p></div></div>
-    <p className="gaming-state"><Sparkles size={16} /> Sección preparada. Biblioteca y emulador todavía no implementados.</p><button className="button secondary" onClick={() => onNavigate('home')}><House size={17} /> Volver a mi Guarida</button></section>;
 }

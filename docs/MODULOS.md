@@ -1,6 +1,6 @@
 # Guarida crece por secciones
 
-Inicio `/` reúne módulos; Cine `/cine` y Archivos `/archivos` funcionan. Gaming `/gaming` muestra próxima etapa, todavía sin catálogo ni emulación.
+Inicio `/` reúne módulos; Cine `/cine` y Archivos `/archivos` funcionan. Gaming `/gaming` incluye biblioteca PS1/SNES, emulación web, controles y partidas en Windows.
 
 ## Agregar sección
 
@@ -12,9 +12,11 @@ Inicio `/` reúne módulos; Cine `/cine` y Archivos `/archivos` funcionan. Gamin
 
 Separar secciones permite evolucionar documentos o Gaming sin recompilar APK de Palomita. Cine conserva API `/api/media`; app TV continúa siendo reproductor de cine. Futuro APK de Guarida sería otro producto, si lo necesitamos.
 
-## Próximas decisiones Gaming
+## Gaming actual
 
-- Guardar y descargar colección organizada por consola.
-- Carátulas/metadata locales.
-- Emular en navegador: definir BIOS, formatos, mandos, guardados y límites de dispositivo. No descargar juegos ni BIOS automáticamente.
-- Emulación en TV requeriría estudiar app separada o integración explícita; no existe en versión actual.
+- `src/Gaming.tsx`: colección, perfiles, subida, BIOS, portadas y panel de emulación.
+- `server/gaming.mjs`, `game-store.mjs`, `game-formats.mjs`: API, SQLite y validación.
+- `public/gaming-player/`: adaptador aislado de EmulatorJS 4.2.3 y guardados versionados.
+- `scripts/setup-gaming.mjs`: instalación local de motor con checksum.
+- HTTPS opcional y controles: [guía Gaming](GAMING.md).
+- Emulación en TV depende de navegador; APK Palomita continúa dedicado a cine.

@@ -1,6 +1,6 @@
 {
   "name": "casa-cine",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "private": true,
   "type": "module",
   "description": "Tu videoclub privado en casa. Sube, comparte y reproduce videos en tu red local.",
@@ -13,7 +13,9 @@
     "start": "node --env-file-if-exists=.env server/index.mjs",
     "test": "node --test tests/*.test.mjs",
     "check": "npm run build && npm test",
-    "test:ui": "node scripts/test-ui.mjs"
+    "test:ui": "node scripts/test-ui.mjs",
+    "gaming:setup": "node scripts/setup-gaming.mjs",
+    "prebuild": "npm run gaming:setup"
   },
   "dependencies": {
     "express": "^5.2.1",

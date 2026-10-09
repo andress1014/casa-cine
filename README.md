@@ -2,18 +2,18 @@
 
 **Tu casa tiene su propio universo.** Centro local para cine, documentos y próximas ideas. PC Windows guarda datos; dispositivos de casa comparten biblioteca.
 
-Una PC guarda biblioteca y ejecuta servidor. Desde cualquier ordenador o teléfono de misma red, abre Guarida en navegador para subir, buscar y reproducir. **Android TV usa app nativa **Palomita TV****, instalable mediante APK y USB, con control remoto. Sin nube, anuncios ni suscripciones.
+Una PC guarda biblioteca y ejecuta servidor. Desde cualquier ordenador o teléfono de misma red, abre Guarida en navegador para subir, buscar y reproducir. **Android TV usa app nativa Palomita TV**, instalable mediante APK y USB, con control remoto. Sin nube, anuncios ni suscripciones.
 
 ![Guarida: cine y archivos de casa](docs/guarida-home.png)
 
 ## Qué incluye
 
 - **Inicio Guarida**: secciones, actividad reciente y espacio real de disco.
-- **Palomita**: videoclub web y APK Android TV. Carátula incrustada tiene prioridad sobre fotograma automático.
+- **Palomita**: videoclub web y APK Android TV. Carátula incrustada tiene prioridad sobre fotograma automático. Búsqueda TMDb opcional para guardar ficha, carátula y fondo en Windows.
 - **Archivos**: carpetas, subir varios documentos/fotos/comprimidos, buscar, renombrar, mover, descargar y eliminar. Hasta 2 GB por archivo, configurable.
-- **Gaming**: espacio preparado para próxima etapa; biblioteca de juegos y emulación todavía no implementadas.
+- **Gaming**: biblioteca PS1/SNES, emulación web, controles y perfiles con partidas guardadas en Windows. [Configuración y formatos](docs/GAMING.md).
 - **Subtítulos**: extracción automática de texto incrustado; añadir SRT/VTT UTF-8 desde reproductor web. Pistas compartidas con TV.
-- **Reproductor TV**: saltos fijos de 10 segundos, repeticiones de tecla ignoradas, menús de subtítulos/audio, velocidad e imagen; reintento de conexión y posición guardada.
+- **Reproductor TV**: saltos fijos de 10 segundos, repeticiones de tecla ignoradas, menús de subtítulos/audio, velocidad e imagen; reintento de conexión, posición guardada y fondo de película después de 30 segundos en pausa (APK 1.2.0).
 
 - Catálogo visual, carátulas y vistas previas automáticas, búsqueda, colecciones y ordenamiento.
 - Subidas de varios videos con progreso, títulos y nombre de quien los comparte. Hasta 30 GB por archivo, configurable.
@@ -29,7 +29,7 @@ Una PC guarda biblioteca y ejecuta servidor. Desde cualquier ordenador o teléfo
 
 ## Actualizar instalación Windows existente
 
-Lee [actualización Windows y APK](docs/ACTUALIZAR-WINDOWS.md). Mantiene datos, `.env`, tarea de arranque `CasaCine` y paquete Android anteriores. Sitio inicial ahora es `/`; cine está en `/cine`, archivos en `/archivos`.
+Versión personal 1.2.0: [paquete Windows y APK local](docs/ACTUALIZAR-1.2.0.md). Para instalación publicada anterior, lee [actualización Windows y APK](docs/ACTUALIZAR-WINDOWS.md). Mantiene datos, `.env`, tarea de arranque `CasaCine` y paquete Android anteriores. Sitio inicial ahora es `/`; cine está en `/cine`, archivos en `/archivos`.
 
 ## Empezar en Windows
 
@@ -56,7 +56,7 @@ Reglas permiten puerto HTTP configurado y UDP 3211 para detección de TV, única
 
 ### Android TV / Google TV
 
-1. Descarga **Palomita-TV-v1.1.0.apk** desde [Releases de repositorio privado](https://github.com/andress1014/casa-cine/releases). En GitHub necesitas sesión de tu cuenta personal.
+1. Versión nueva personal: **Palomita-TV-v1.2.0.apk**, generada en `releases/`. Versión anterior 1.1.0 sigue en [Releases de repositorio privado](https://github.com/andress1014/casa-cine/releases). En GitHub necesitas sesión de tu cuenta personal.
 2. Copia APK a memoria USB y conéctala a TV. USB transfiere instalador; películas permanecen en PC.
 3. Abre gestor de archivos de TV y selecciona APK. Si TV no incluye gestor, instala uno compatible desde Google Play.
 4. Cuando Android lo solicite, permite **Instalar apps desconocidas** para ese gestor e instala Palomita TV. Nombre/ruta de ajuste depende de fabricante; [Android documenta permiso por aplicación](https://developer.android.com/studio/publish).
@@ -64,7 +64,7 @@ Reglas permiten puerto HTTP configurado y UDP 3211 para detección de TV, única
 6. Si detección falla, escribe IP que muestra servidor, por ejemplo `192.168.1.50:3210`. Si configuraste código de casa, app lo pide.
 7. Guarda tu nombre para perfil de TV. Flechas exploran, OK reproduce, mantener OK abre detalles/favoritos/iniciar desde cero; controles de reproducción permiten pausar y avanzar/retroceder.
 
-APK 1.1.0 conserva paquete y firma de versión inicial: instálala encima de anterior para mantener favoritos/IP. Nombre visible cambia a **Palomita**. APK es compilación **debug firmada**, apta para instalación personal. No está publicada en Play Store. Si compilas con otra clave, actualizar instalación existente puede requerir desinstalar antes y perder favoritos/historial de TV. App no es WebView; usa controles Android y reproductor nativo. PC debe permanecer encendida y conectada.
+APK 1.2.0 conserva paquete y firma de versión inicial: instálala encima de anterior para mantener favoritos/IP. Nombre visible cambia a **Palomita**. APK es compilación **debug firmada**, apta para instalación personal. No está publicada en Play Store. Si compilas con otra clave, actualizar instalación existente puede requerir desinstalar antes y perder favoritos/historial de TV. App no es WebView; usa controles Android y reproductor nativo. PC debe permanecer encendida y conectada.
 
 Web conserva **Modo TV** como alternativa para pantallas con navegador. No incluye transmisión Chromecast.
 
@@ -160,3 +160,7 @@ Tecnología: React + TypeScript + Vite; Express; SQLite integrado de Node.js; FF
 Plantilla opcional de GitHub Actions: [docs/ci-template.yml](docs/ci-template.yml). Copiar a `.github/workflows/ci.yml` activa CI; publicación con token OAuth requiere permiso `workflow`. Plantilla permanece desactivada por defecto. Windows físico y tu modelo de Android TV todavía requieren comprobación en casa.
 
 Más detalles: [arquitectura](docs/architecture.md), [investigación y controles de TV](docs/TV-PLAYER.md), [agregar secciones](docs/MODULOS.md).
+
+## Carátulas y fondos de cine
+
+[Búsqueda TMDb y fondo en pausa de TV](docs/CARATULAS-TMDB.md). Fichas se eligen desde web y se guardan en Windows; APK incorpora respaldo TMDb con credencial personal y fondo tras 30 segundos en pausa.

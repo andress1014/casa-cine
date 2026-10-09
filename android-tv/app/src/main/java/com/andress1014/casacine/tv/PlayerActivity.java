@@ -3,17 +3,20 @@ package com.andress1014.casacine.tv;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.ImageView;
 import android.widget.Toast;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -49,6 +52,18 @@ public final class PlayerActivity extends Activity {
     private TextView title, feedback;
     private LinearLayout tools;
     private boolean fromStart, errorVisible;
+    private FrameLayout idleArtwork;
+    private ImageView idleBackground;
+    private TextView idleTitle;
+    private boolean artworkReady, idleVisible;
+    private int idleResumeKey = -1;
+    private static final long IDLE_ARTWORK_MS = 30_000;
+    private final Runnable showIdleArtwork = () -> {
+        if (player == null || errorVisible || !artworkReady || player.getPlayWhenReady()) return;
+        int state = player.getPlaybackState();
+        if (state != Player.STATE_READY && state != Player.STATE_ENDED) return;
+        idleVisible = true; view.hideController(); idleArtwork.setVisibility(View.VISIBLE);
+    };
     private int generation;
     private final Runnable hideFeedback = () -> feedback.setVisibility(View.GONE);
     private final Runnable save = new Runnable() {
@@ -76,9 +91,18 @@ public final class PlayerActivity extends Activity {
         title = Ui.text(this,"Palomita · Preparando función…",20,Ui.TEXT,true); top.addView(title); Ui.space(top,8);
         tools = new LinearLayout(this); tools.setGravity(Gravity.CENTER_VERTICAL);
         addTool("Subtítulos",() -> tracks(C.TRACK_TYPE_TEXT,"Subtítulos")); addTool("Audio",() -> tracks(C.TRACK_TYPE_AUDIO,"Audio"));
-        addTool("Velocidad",this::speed); addTool("Imagen",this::imageSize); addTool("Volver",this::finish);
+        addTool("Velocidad",this::speed); addTool("Imagen",this::imageSize); addTool("Créditos",this::credits); addTool("Volver",this::finish);
         top.addView(tools); Ui.space(top,6); top.addView(Ui.text(this,"Barra / ◀▶: 10 s por pulsación · OK: pausa · Atrás: controles / cartelera",11,Ui.MUTED,false));
         root.addView(top,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
+        idleArtwork = new FrameLayout(this); idleArtwork.setBackgroundColor(Ui.BG); idleArtwork.setVisibility(View.GONE); idleArtwork.setFocusable(false);
+        idleBackground = new ImageView(this); idleBackground.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        idleArtwork.addView(idleBackground,new FrameLayout.LayoutParams(-1,-1));
+        View shade = new View(this); shade.setBackgroundColor(0xb8101510); idleArtwork.addView(shade,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout idleInfo = Ui.column(this); idleInfo.setPadding(Ui.dp(this,45),Ui.dp(this,30),Ui.dp(this,45),Ui.dp(this,35));
+        idleInfo.addView(Ui.text(this,"PALOMITA · TU FUNCIÓN EN PAUSA",14,Ui.LIME,true)); Ui.space(idleInfo,14);
+        idleTitle = Ui.text(this,"",38,Ui.TEXT,true); idleInfo.addView(idleTitle); Ui.space(idleInfo,12);
+        idleInfo.addView(Ui.text(this,"Pulsa OK para continuar · Cualquier otra tecla vuelve a controles",16,Ui.TEXT,false));
+        idleArtwork.addView(idleInfo,new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM)); root.addView(idleArtwork,new FrameLayout.LayoutParams(-1,-1));
         view.setControllerVisibilityListener((PlayerView.ControllerVisibilityListener) visibility -> top.setVisibility(visibility));
         feedback = Ui.text(this,"",27,Ui.TEXT,true); feedback.setBackground(Ui.panel(0xe0202b19,Ui.LIME,this)); feedback.setPadding(24,16,24,16); feedback.setVisibility(View.GONE);
         FrameLayout.LayoutParams feedbackParams = new FrameLayout.LayoutParams(-2,-2,Gravity.CENTER); root.addView(feedback,feedbackParams);
@@ -98,7 +122,12 @@ public final class PlayerActivity extends Activity {
         player.setHandleAudioBecomingNoisy(true);
         player.addListener(new Player.Listener() {
             @Override public void onPlayerError(PlaybackException error) { showError(false); }
-            @Override public void onPlaybackStateChanged(int state) { if (state == Player.STATE_ENDED) savePosition(); }
+            @Override public void onPlaybackStateChanged(int state) {
+                if (state == Player.STATE_ENDED) { savePosition(); player.pause(); }
+                updateIdleArtwork();
+            }
+            @Override public void onPlayWhenReadyChanged(boolean ready,int reason) { updateIdleArtwork(); }
+            @Override public void onIsPlayingChanged(boolean playing) { updateIdleArtwork(); }
         });
         view.setPlayer(player); view.requestFocus(); view.showController();
         tasks.execute(() -> {
@@ -112,9 +141,14 @@ public final class PlayerActivity extends Activity {
                     .setMediaMetadata(new MediaMetadata.Builder().setTitle(media.title).build()).build();
                 main.post(() -> {
                     if (request != generation || player == null) return;
-                    title.setText("Palomita · " + media.title); player.setMediaItem(item);
+                    title.setText("Palomita · " + media.title); idleTitle.setText(media.title); player.setMediaItem(item);
                     if (!fromStart) player.seekTo(Math.max(0,prefs.getLong(key,0))); fromStart = false;
                     player.prepare(); player.setPlayWhenReady(true); main.postDelayed(save,5000);
+                });
+                Bitmap artwork = client.artwork(media);
+                main.post(() -> {
+                    if (request != generation || player == null || artwork == null) return;
+                    idleBackground.setImageBitmap(artwork); artworkReady = true; updateIdleArtwork();
                 });
             } catch (ServerClient.AccessRequired error) { main.post(() -> { if (request == generation) showError(true); }); }
             catch (Exception error) { main.post(() -> { if (request == generation) showError(false); }); }
@@ -122,6 +156,7 @@ public final class PlayerActivity extends Activity {
     }
     private void showError(boolean access) {
         if (errorVisible || isFinishing() || player == null) return; errorVisible = true;
+        hideIdleArtwork(); main.removeCallbacks(showIdleArtwork);
         AlertDialog.Builder dialog = new AlertDialog.Builder(this).setTitle(access ? "Código de casa" : "Pausa inesperada")
             .setMessage(access ? "Vuelve a cartelera para ingresar código de casa." : "Revisa PC encendida y conexión Wi-Fi. Puedes reintentar desde mismo punto o volver a cartelera.")
             .setNegativeButton("Volver",(d,w) -> finish()).setOnDismissListener(d -> errorVisible = false);
@@ -145,6 +180,26 @@ public final class PlayerActivity extends Activity {
     private void imageSize() {
         new AlertDialog.Builder(this).setTitle("Imagen").setItems(new String[]{"Completa · conserva proporción","Llenar pantalla · recorta bordes"},(d,index) -> view.setResizeMode(index == 0 ? AspectRatioFrameLayout.RESIZE_MODE_FIT : AspectRatioFrameLayout.RESIZE_MODE_ZOOM)).show();
     }
+    private void credits() {
+        LinearLayout content = Ui.column(this); content.setPadding(30,24,30,24);
+        ImageView logo = new ImageView(this); logo.setImageResource(R.drawable.tmdb_logo); logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        content.addView(logo,new LinearLayout.LayoutParams(Ui.dp(this,140),Ui.dp(this,35))); Ui.space(content,16);
+        content.addView(Ui.text(this,"This product uses the TMDB API but is not endorsed or certified by TMDB.",14,Ui.TEXT,false));
+        Ui.space(content,10); content.addView(Ui.text(this,"The Movie Database · https://www.themoviedb.org",12,Ui.MUTED,false));
+        new AlertDialog.Builder(this).setTitle("Créditos · Palomita").setView(content).setPositiveButton("Cerrar",(d,w) -> {}).show();
+    }
+    private void hideIdleArtwork() {
+        idleVisible = false; if (idleArtwork != null) idleArtwork.setVisibility(View.GONE);
+    }
+    private void updateIdleArtwork() {
+        main.removeCallbacks(showIdleArtwork);
+        if (player == null || player.getPlayWhenReady() || errorVisible) { hideIdleArtwork(); return; }
+        if (!idleVisible && artworkReady && (player.getPlaybackState() == Player.STATE_READY || player.getPlaybackState() == Player.STATE_ENDED)) main.postDelayed(showIdleArtwork,IDLE_ARTWORK_MS);
+    }
+    private void artworkInteraction() {
+        boolean shown = idleVisible; hideIdleArtwork(); main.removeCallbacks(showIdleArtwork);
+        if (shown && view != null) view.showController(); updateIdleArtwork();
+    }
     private void seek(boolean forward) {
         if (player == null || !player.isCurrentMediaItemSeekable()) return;
         player.seekTo(RemoteSeek.target(player.getCurrentPosition(),player.getDuration(),forward));
@@ -157,13 +212,27 @@ public final class PlayerActivity extends Activity {
         if (length != C.TIME_UNSET && length > 0 && position >= 0) prefs.edit().putLong(key,player.getPlaybackState() == Player.STATE_ENDED || position >= length - 2000 ? 0 : position).apply();
     }
     @Override protected void onStop() {
-        generation++; main.removeCallbacks(save); main.removeCallbacks(hideFeedback); savePosition(); if (view != null) view.setPlayer(null);
+        generation++; main.removeCallbacks(save); main.removeCallbacks(hideFeedback); main.removeCallbacks(showIdleArtwork); hideIdleArtwork(); artworkReady = false;
+        if (idleBackground != null) idleBackground.setImageDrawable(null);
+        savePosition(); if (view != null) view.setPlayer(null);
         if (player != null) { player.release(); player = null; } super.onStop();
     }
     @Override protected void onDestroy() { main.removeCallbacksAndMessages(null); tasks.shutdownNow(); super.onDestroy(); }
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
         if (view == null || player == null || errorVisible) return super.dispatchKeyEvent(event);
         int code = event.getKeyCode();
+        if (code == idleResumeKey) {
+            if (event.getAction() == KeyEvent.ACTION_UP) idleResumeKey = -1;
+            return true;
+        }
+        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+            boolean shown = idleVisible; artworkInteraction();
+            if (shown && (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || code == KeyEvent.KEYCODE_MEDIA_PLAY)) {
+                idleResumeKey = code;
+                if (player.getPlaybackState() == Player.STATE_ENDED) player.seekTo(0);
+                player.play(); return true;
+            }
+        }
         boolean forward = code == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD || code == KeyEvent.KEYCODE_DPAD_RIGHT;
         boolean seek = code == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD || code == KeyEvent.KEYCODE_MEDIA_REWIND
             || ((code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT) && (!view.isControllerFullyVisible() || (timeBar != null && timeBar.hasFocus())));
@@ -175,5 +244,9 @@ public final class PlayerActivity extends Activity {
         if (event.getRepeatCount() > 0 && (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER)) return true;
         // Dispatch once through Activity: duplicate PlayerView dispatch can double remote actions.
         return super.dispatchKeyEvent(event);
+    }
+    @Override public boolean dispatchTouchEvent(MotionEvent event) {
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) artworkInteraction();
+        return super.dispatchTouchEvent(event);
     }
 }

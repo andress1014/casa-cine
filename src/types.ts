@@ -5,7 +5,8 @@ export type Media = {
   originalName: string; size: number; createdAt: string; duration: number;
   width: number; height: number; status: 'processing' | 'ready' | 'error'; progress: number;
   error: string | null; format: string; posterUrl: string | null; streamUrl: string | null;
-  subtitles: Subtitle[]; subtitleWarnings: string[]; posterVersion: number; posterSource: 'embedded' | 'frame' | null;
+  subtitles: Subtitle[]; subtitleWarnings: string[]; posterVersion: number; posterSource: 'embedded' | 'frame' | 'tmdb' | null;
+  backdropUrl: string | null; tmdbId: number | null; tmdbType: 'movie' | 'tv' | null; releaseYear: string | null; genres: string[];
   downloadUrl: string; videoCodec: string; audioCodec: string;
 };
 export type System = { name: string; urls: string[]; categories: Category[]; maxUploadBytes: number; protected: boolean };

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Heart, Download, MonitorPlay, RotateCcw, Expand, PictureInPicture2, Pencil, Trash2, LoaderCircle, Check } from 'lucide-react';
 import { Dialog } from './Dialog';
 import { api, bytes, duration, categories, type Media, type Category, type WatchProgress } from './types';
+import { MovieMetadata } from './MovieMetadata';
 
 export function Player({ media, saved, favourite, toggleFavourite, saveProgress, onClose, onChanged, onRemoved, notify }: {
   media: Media; saved?: WatchProgress[string]; favourite: boolean; toggleFavourite: () => void;
@@ -75,7 +76,9 @@ export function Player({ media, saved, favourite, toggleFavourite, saveProgress,
     {failed && <p className="inline-error" role="alert">Este navegador no pudo reproducir el video. Prueba otro navegador o descarga el original para abrirlo con VLC.</p>}
     <div className="player-info">
       <div className="player-meta"><span className="category-label">{media.category}</span><span>{duration(media.duration)}</span><span>{media.height >= 2160 ? '4K' : media.height >= 1080 ? '1080p' : media.height >= 720 ? '720p' : `${media.height}p`}</span><span>{bytes(media.size)}</span></div>
-      <p>{media.description || 'Una historia más para compartir en casa.'}</p><small>Traído por {media.addedBy} · {new Date(media.createdAt).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}</small>
+      <p>{media.description || 'Una historia más para compartir en casa.'}</p>
+      {(media.releaseYear || media.genres?.length > 0) && <p className="subtitle-note">{[media.releaseYear,...(media.genres || [])].filter(Boolean).join(' · ')}</p>}
+      <small>Traído por {media.addedBy} · {new Date(media.createdAt).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}</small>
       <div className="player-actions">
         <button className={`button secondary ${favourite ? 'favourited' : ''}`} onClick={toggleFavourite}><Heart size={18} fill={favourite ? 'currentColor' : 'none'} /> {favourite ? 'En favoritos' : 'Guardar favorito'}</button>
         {media.status === 'ready' && <><button className="button secondary" onClick={() => { if (video.current) { video.current.currentTime = 0; void video.current.play().catch(() => {}); } }}><RotateCcw size={17} /> Desde el inicio</button>
@@ -90,7 +93,8 @@ export function Player({ media, saved, favourite, toggleFavourite, saveProgress,
         <button className="button secondary" disabled={subtitleBusy} onClick={() => subtitleFile.current?.click()}>{subtitleBusy ? 'Añadiendo…' : 'Añadir SRT / VTT'}</button><input type="file" ref={subtitleFile} hidden accept=".srt,.vtt" onChange={event => void addSubtitle(event.target.files?.[0])} />
         <button className="button secondary" onClick={() => { void api(`/api/media/${media.id}/metadata/refresh`,{ method: 'POST' }).then(() => notify('Buscando carátula y subtítulos dentro de video…')).catch(error => notify(error.message)); }}>Actualizar carátula y pistas</button>
         {subtitle && media.subtitles?.find(track => track.id === subtitle)?.source === 'external' && <button className="button secondary" onClick={() => { if (window.confirm('¿Eliminar esta pista de subtítulos para toda casa?')) void api(`/api/media/${media.id}/subtitles/${subtitle}`,{ method: 'DELETE' }).then(async () => { setSubtitle(''); onChanged((await api<{ media: Media }>(`/api/media/${media.id}`)).media); }).catch(error => notify(error.message)); }}>Eliminar pista</button>}</div>
-        <p className="subtitle-note">Subtítulos incrustados de texto y SRT/VTT. Audio e idiomas disponibles desde reproductor de TV. {media.posterSource === 'embedded' ? 'Carátula tomada de archivo original.' : 'Vista previa tomada de video.'}</p>{media.subtitleWarnings?.map((message,index) => <p className="subtitle-note" key={index}>{message}</p>)}</>}
+        <p className="subtitle-note">Subtítulos incrustados de texto y SRT/VTT. Audio e idiomas disponibles desde reproductor de TV. {media.posterSource === 'tmdb' ? 'Carátula de TMDb guardada en casa.' : media.posterSource === 'embedded' ? 'Carátula tomada de archivo original.' : 'Vista previa tomada de video.'}</p>{media.subtitleWarnings?.map((message,index) => <p className="subtitle-note" key={index}>{message}</p>)}
+        <MovieMetadata media={media} onChanged={onChanged} notify={notify} /></>}
       {media.status === 'error' && <button className="button primary" onClick={() => { void api<{ media: Media }>(`/api/media/${media.id}/retry`, { method: 'POST' }).then(result => onChanged(result.media)).catch(error => notify(error.message)); }}><RotateCcw size={17} /> Volver a preparar</button>}
       {editing && <form className="edit-form" onSubmit={event => { event.preventDefault(); void save(); }}>
         <label className="form-label">Título<input required value={title} maxLength={160} onChange={e => setTitle(e.target.value)} /></label>
