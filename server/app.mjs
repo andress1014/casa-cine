@@ -48,7 +48,7 @@ export async function createApplication(options = {}) {
     const player = req.path === '/gaming-player/player.html' || req.path.startsWith('/emulatorjs/');
     res.setHeader('X-Frame-Options', player ? 'SAMEORIGIN' : 'DENY');
     if (!config.dev || player) res.setHeader('Content-Security-Policy', player
-      ? "default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+      ? "default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval' 'unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
       : "default-src 'self'; script-src 'self'; frame-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
     next();
   });
