@@ -90,7 +90,9 @@ public final class MainActivity extends TvActivity {
         LinearLayout controls = row(); button(controls,"Conectar",() -> connect(address.getText().toString())); button(controls,"Buscar en Wi-Fi",this::discover); root.addView(controls);
         Ui.space(root,16); status = Ui.text(this,"Buscaremos PC dentro de casa.",16,Ui.MUTED,false); root.addView(status);
         results = Ui.column(this); root.addView(results,new LinearLayout.LayoutParams(-1,0,1));
-        root.addView(Ui.text(this,"Sube videos desde PC o teléfono. Aquí usa control remoto.",14,Ui.MUTED,false)); controls.getChildAt(0).requestFocus();
+        root.addView(Ui.text(this,"Sube videos desde PC o teléfono. Aquí usa control remoto.",14,Ui.MUTED,false));
+        Ui.space(root,4); root.addView(Ui.version(this),new LinearLayout.LayoutParams(-1,-2));
+        controls.getChildAt(0).requestFocus();
     }
     private void discover() {
         if (discovering) return; discovering = true; int request = generation; status.setText("Buscando Palomita en Wi-Fi…");

@@ -39,6 +39,10 @@ public final class Ui {
         TextView view = new TextView(context); view.setText(label); view.setTextSize(size); view.setTextColor(color);
         if (bold) view.setTypeface(Typeface.DEFAULT,Typeface.BOLD); return view;
     }
+    public static TextView version(Context context) {
+        TextView label = text(context,"Guarida TV · v" + BuildConfig.VERSION_NAME,12,MUTED,false);
+        label.setGravity(Gravity.END); label.setSingleLine(true); return label;
+    }
     public static Button button(Context context, String label, Runnable action) {
         Button button = new Button(context); button.setText(label); button.setTextSize(14); button.setAllCaps(false);
         button.setMinHeight(dp(context,46)); button.setMinimumWidth(0); button.setPadding(dp(context,18),dp(context,9),dp(context,18),dp(context,9));
@@ -84,7 +88,10 @@ public final class Ui {
         }); identity.setText(profile); identity.setOnClickListener(v -> editProfile.run()); header.addView(identity,new LinearLayout.LayoutParams(dp(activity,118),-2));
         root.addView(header,new LinearLayout.LayoutParams(-1,dp(activity,64)));
         LinearLayout content=column(activity); content.setPadding(dp(activity,40),dp(activity,8),dp(activity,40),dp(activity,16));
-        root.addView(content,new LinearLayout.LayoutParams(-1,0,1)); activity.setContentView(canvas); return new TvShell(content,identity,backdrop);
+        root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
+        TextView version=version(activity); version.setPadding(dp(activity,40),0,dp(activity,40),dp(activity,12));
+        root.addView(version,new LinearLayout.LayoutParams(-1,-2));
+        activity.setContentView(canvas); return new TvShell(content,identity,backdrop);
     }
     private static void nav(LinearLayout header,String title,boolean selected,Runnable action) {
         Context context=header.getContext(); Button button=button(context,title,action); button.setPadding(0,0,0,0); button.setMinHeight(0); button.setMinimumHeight(0); button.setTextSize(14);
