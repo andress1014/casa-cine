@@ -28,6 +28,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Checks the public GitHub repository directly; no credential is used or stored. */
 final class TvUpdater {
+    static final class ValidationFailure extends Exception {
+        ValidationFailure(String message) { super(message); }
+    }
     private final Activity activity;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService tasks = Executors.newSingleThreadExecutor();
@@ -77,13 +80,16 @@ final class TvUpdater {
         progress.setMax(100); progress.setCancelable(true); progress.setOnCancelListener(d -> cancel.set(true)); progress.show();
         tasks.execute(() -> {
             File file = null;
+            boolean downloaded = false;
             try {
-                if (activity.getCacheDir().getUsableSpace() < update.size * 2 + 10 * 1024 * 1024L) throw new Exception("Espacio insuficiente.");
+                if (activity.getCacheDir().getUsableSpace() < update.size * 2 + 10 * 1024 * 1024L) throw new ValidationFailure("Libera espacio en TV e intenta de nuevo (D02).");
                 file = File.createTempFile("guarida-update-",".apk",activity.getCacheDir());
                 activeFile = file;
                 if (closed || cancel.get()) throw new Exception("Cancelado.");
                 GitHubReleases.download(update,file,cancel,percent -> ui(() -> { if (progress != null) progress.setProgress(percent); }));
+                downloaded = true;
                 if (closed || cancel.get()) throw new Exception("Cancelado.");
+                ui(() -> { if (progress != null) { progress.setMessage("Verificando actualización…"); progress.setIndeterminate(true); } });
                 validate(file,update); File verified = file;
                 ui(() -> {
                     dismissProgress(); busy = false;
@@ -93,7 +99,10 @@ final class TvUpdater {
                 if (closed) verified.delete();
             } catch (Exception error) {
                 if (file != null) file.delete();
-                ui(() -> { dismissProgress(); busy = false; if (!cancel.get()) toast("No pudimos descargar APK válido. Revisa espacio, conexión y firma de versión publicada."); });
+                String message = error instanceof ValidationFailure ? error.getMessage() : downloaded
+                    ? "TV no pudo leer o verificar APK descargada (V09)."
+                    : "Descarga o guardado no terminaron correctamente. Intenta de nuevo (D01).";
+                ui(() -> { dismissProgress(); busy = false; if (!cancel.get()) toast(message); });
             }
         });
     }
@@ -112,7 +121,10 @@ final class TvUpdater {
         busy = true; File file = pendingFile; TvUpdate update = pendingUpdate; pendingFile = null; pendingUpdate = null;
         tasks.execute(() -> {
             try { validate(file,update); install(file); }
-            catch (Exception error) { ui(() -> toast("No pudimos iniciar instalación. Revisa permiso y espacio del TV.")); }
+            catch (Exception error) {
+                String message = error instanceof ValidationFailure ? error.getMessage() : "No pudimos iniciar instalación. Revisa permiso y espacio del TV (I01).";
+                ui(() -> toast(message));
+            }
             finally { file.delete(); ui(() -> busy = false); }
         });
     }
@@ -122,7 +134,10 @@ final class TvUpdater {
     }
     void pause() { foreground = false; }
     private Signature[] signatures(PackageInfo info) {
-        if (Build.VERSION.SDK_INT >= 28) return info.signingInfo == null ? new Signature[0] : info.signingInfo.getApkContentsSigners();
+        if (Build.VERSION.SDK_INT >= 28 && info.signingInfo != null) {
+            Signature[] current = info.signingInfo.getApkContentsSigners();
+            if (current != null && current.length > 0) return current;
+        }
         return info.signatures == null ? new Signature[0] : info.signatures;
     }
     private Set<String> certificateSet(PackageInfo info) throws Exception {
@@ -130,20 +145,26 @@ final class TvUpdater {
         for (Signature signature : signatures(info)) result.add(hex(MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())));
         return result;
     }
-    private void validate(File file, TvUpdate update) throws Exception {
-        if (file.length() != update.size) throw new Exception("APK inválido.");
+    void validate(File file, TvUpdate update) throws Exception {
+        if (file.length() != update.size) throw new ValidationFailure("Descarga incompleta. Vuelve a descargar actualización (V01).");
         MessageDigest hash = MessageDigest.getInstance("SHA-256");
         try (FileInputStream in = new FileInputStream(file)) { byte[] bytes = new byte[65536]; int n; while ((n = in.read(bytes)) != -1) hash.update(bytes,0,n); }
-        if (!update.sha256.equals(hex(hash.digest()))) throw new Exception("APK inválido.");
-        int flags = Build.VERSION.SDK_INT >= 28 ? PackageManager.GET_SIGNING_CERTIFICATES : PackageManager.GET_SIGNATURES;
+        if (!update.sha256.equals(hex(hash.digest()))) throw new ValidationFailure("APK descargada está dañada. Vuelve a descargar actualización (V02).");
+        int flags = PackageManager.GET_SIGNATURES | (Build.VERSION.SDK_INT >= 28 ? PackageManager.GET_SIGNING_CERTIFICATES : 0);
         PackageManager pm = activity.getPackageManager();
         PackageInfo archive = pm.getPackageArchiveInfo(file.getAbsolutePath(),flags);
         PackageInfo installed = pm.getPackageInfo(BuildConfig.APPLICATION_ID,flags);
-        if (archive == null || archive.applicationInfo == null || !BuildConfig.APPLICATION_ID.equals(archive.packageName) || !update.versionName.equals(archive.versionName)
-            || (Build.VERSION.SDK_INT >= 28 ? archive.getLongVersionCode() : archive.versionCode) != update.versionCode
-            || (Build.VERSION.SDK_INT >= 24 && archive.applicationInfo.minSdkVersion > Build.VERSION.SDK_INT)) throw new Exception("APK incompatible.");
+        if (archive == null || archive.applicationInfo == null) throw new ValidationFailure("Android no pudo leer APK descargada (V03).");
+        if (!BuildConfig.APPLICATION_ID.equals(archive.packageName) || !update.versionName.equals(archive.versionName)
+            || (Build.VERSION.SDK_INT >= 28 ? archive.getLongVersionCode() : archive.versionCode) != update.versionCode)
+            throw new ValidationFailure("APK no corresponde a versión publicada de Guarida (V04).");
+        if (Build.VERSION.SDK_INT >= 24 && archive.applicationInfo.minSdkVersion > Build.VERSION.SDK_INT)
+            throw new ValidationFailure("Esta versión necesita Android más reciente (V05).");
         Set<String> original = certificateSet(installed);
-        if (original.isEmpty() || !original.equals(certificateSet(archive))) throw new Exception("Firma incompatible.");
+        if (original.isEmpty()) throw new ValidationFailure("Android no devolvió firma de Guarida instalada (V06).");
+        Set<String> downloaded = certificateSet(archive);
+        if (downloaded.isEmpty()) throw new ValidationFailure("Android no devolvió firma de APK descargada (V07).");
+        if (!original.equals(downloaded)) throw new ValidationFailure("Firma de actualización distinta de app instalada. No se instalará (V08).");
     }
     static String hex(byte[] bytes) { StringBuilder out = new StringBuilder(); for (byte b : bytes) out.append(String.format(java.util.Locale.ROOT,"%02x",b & 255)); return out.toString(); }
     private void install(File file) throws Exception {
