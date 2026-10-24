@@ -5,9 +5,10 @@ import android.os.Build;
 
 final class TvUpdate {
     final int versionCode;
-    final String versionName, sha256;
+    final String versionName, sha256, apkUrl;
     final long size;
-    TvUpdate(JSONObject value) throws Exception {
+    TvUpdate(JSONObject value, String apkUrl) throws Exception {
+        this.apkUrl = apkUrl;
         versionCode = value.getInt("versionCode"); versionName = value.getString("versionName");
         sha256 = value.getString("sha256"); size = value.getLong("size");
         int minSdk = value.getInt("minSdk");
@@ -16,7 +17,7 @@ final class TvUpdate {
             || !sha256.matches("[a-f0-9]{64}") || size < 1024 || size > 128L * 1024 * 1024
             || minSdk < 23 || minSdk > Build.VERSION.SDK_INT
             || !value.getString("apkName").equals("Guarida-TV-v" + versionName + ".apk")
-            || !value.getString("downloadPath").equals("/api/tv/update/apk/" + sha256)) {
+            || apkUrl == null || !apkUrl.startsWith(GitHubReleases.DOWNLOADS) || !apkUrl.endsWith("/Guarida-TV-v" + versionName + ".apk")) {
             throw new Exception("Actualización incompatible con este TV.");
         }
     }

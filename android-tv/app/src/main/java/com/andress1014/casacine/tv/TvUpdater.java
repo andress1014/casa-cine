@@ -25,9 +25,8 @@ import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.json.JSONObject;
 
-/** No repository credential is ever received by this component. */
+/** Checks the public GitHub repository directly; no credential is used or stored. */
 final class TvUpdater {
     private final Activity activity;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -53,16 +52,10 @@ final class TvUpdater {
         if (manual) toast("Buscando actualización…");
         tasks.execute(() -> {
             try {
-                JSONObject response = client.checkTvUpdate();
-                if (!response.optBoolean("configured")) { ui(() -> { busy = false; if (manual) toast("Configura actualizaciones en PC. Revisa guía de Guarida."); }); return; }
-                JSONObject value = response.optJSONObject("update");
-                if (value == null) {
+                TvUpdate update = GitHubReleases.latest();
+                if (update == null) {
                     ui(() -> { busy = false; if (manual) toast("Todavía no hay actualización publicada para TV."); }); return;
                 }
-                if (value.optLong("versionCode") <= BuildConfig.VERSION_CODE) {
-                    ui(() -> { busy = false; if (manual) toast("Guarida " + BuildConfig.VERSION_NAME + " está actualizada."); }); return;
-                }
-                TvUpdate update = new TvUpdate(value);
                 ui(() -> {
                     busy = false;
                     if (!foreground) return;
@@ -72,15 +65,15 @@ final class TvUpdater {
                         .setNegativeButton("Ahora no",(d,w) -> {})
                         .setPositiveButton("Actualizar",(d,w) -> download(client,update)).show();
                 });
-            } catch (ServerClient.AccessRequired error) { ui(() -> { busy = false; if (manual) toast("Vuelve a conectar e introduce código de casa."); }); }
-            catch (Exception error) { ui(() -> { busy = false; if (manual) toast("No pudimos buscar actualización compatible. Revisa PC e internet e intenta de nuevo."); }); }
+            } catch (GitHubReleases.UpToDate current) { ui(() -> { busy = false; if (manual) toast("Guarida " + BuildConfig.VERSION_NAME + " está actualizada."); }); }
+            catch (Exception error) { ui(() -> { busy = false; if (manual) toast("No pudimos buscar actualización compatible. Revisa internet del TV e intenta de nuevo."); }); }
         });
     }
     private void download(ServerClient client, TvUpdate update) {
         if (busy || closed) return;
         busy = true; cancelled = new AtomicBoolean(); AtomicBoolean cancel = cancelled;
         progress = new ProgressDialog(activity); progress.setTitle("Actualizando Guarida");
-        progress.setMessage("Descargando desde PC…"); progress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        progress.setMessage("Descargando desde GitHub…"); progress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         progress.setMax(100); progress.setCancelable(true); progress.setOnCancelListener(d -> cancel.set(true)); progress.show();
         tasks.execute(() -> {
             File file = null;
@@ -89,7 +82,7 @@ final class TvUpdater {
                 file = File.createTempFile("guarida-update-",".apk",activity.getCacheDir());
                 activeFile = file;
                 if (closed || cancel.get()) throw new Exception("Cancelado.");
-                client.downloadTvUpdate(update,file,cancel,percent -> ui(() -> { if (progress != null) progress.setProgress(percent); }));
+                GitHubReleases.download(update,file,cancel,percent -> ui(() -> { if (progress != null) progress.setProgress(percent); }));
                 if (closed || cancel.get()) throw new Exception("Cancelado.");
                 validate(file,update); File verified = file;
                 ui(() -> {

@@ -1,5 +1,7 @@
 # Actualizar Guarida desde TV
 
+> **Desde 1.3.5 (24 de octubre de 2026):** el repositorio es público y el TV consulta GitHub directamente (`GitHubReleases.java`): lee `releases/latest`, baja `tv-update.json` y el APK de `github.com/andress1014/casa-cine/releases/download/<tag>/`, y verifica tamaño, SHA-256, paquete, versión y certificado igual que antes. No hace falta token ni que el PC esté encendido para actualizar. La 1.3.5 se instala una vez a mano (USB) sobre la 1.3.4; las siguientes llegan desde **Opciones → Actualizar Guarida**. Las rutas `/api/tv/update*` del servidor y `TV_UPDATE_*` del `.env` quedan sin uso por el TV. Lo de abajo describe el flujo 1.3.4 vía PC.
+
 Implementación: 11 de octubre de 2026. APK compilada y verificada: 23 de octubre de 2026. Versión Android: 1.3.4, versionCode 8.
 
 ## Uso
