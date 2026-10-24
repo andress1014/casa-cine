@@ -15,6 +15,7 @@ import { createSubtitlesRouter } from './subtitles.mjs';
 import { createGameStore } from './game-store.mjs';
 import { createGamingRouter, emulatorRoot } from './gaming.mjs';
 import { createMovieMetadataRouter } from './movie-metadata.mjs';
+import { createTvUpdatesRouter } from './tv-updates.mjs';
 import homeModules from '../shared/home-modules.json' with { type: 'json' };
 
 const extensions = ['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.avi', '.mpeg', '.mpg', '.wmv', '.ts'];
@@ -63,6 +64,7 @@ export async function createApplication(options = {}) {
     res.json({ ok: true });
   });
   app.use('/api', access.guard, (_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
+  app.use('/api', createTvUpdatesRouter(config));
   app.get('/api/system', (req, res) => {
     const urls = localUrls(config.port);
     const host = req.hostname.replace(/^\[|\]$/g, '');

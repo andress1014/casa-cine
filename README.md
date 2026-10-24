@@ -56,7 +56,9 @@ Reglas permiten puerto HTTP configurado y UDP 3211 para detección de TV, única
 
 ### Android TV / Google TV
 
-1. Versión nueva personal: **Guarida-TV-v1.3.3.apk**, generada en `releases/`. Versión anterior 1.1.0 sigue en [Releases de repositorio privado](https://github.com/andress1014/casa-cine/releases). En GitHub necesitas sesión de tu cuenta personal.
+Actualizador desde TV compilado en versión 1.3.4: [configuración privada y publicación](docs/ACTUALIZACIONES-TV.md). Primera instalación con actualizador es manual; siguientes usarán **Opciones → Actualizar Guarida**, con confirmación del instalador Android. APK 1.3.4 y manifiesto preparados en `releases/`, con firma compatible con 1.3.3. Requiere actualizar y configurar servidor Windows; comprobación en TV real pendiente.
+
+1. Versión nueva personal: **Guarida-TV-v1.3.4.apk**, generada en `releases/`. Consulta disponibilidad publicada en [Releases de repositorio privado](https://github.com/andress1014/casa-cine/releases). En GitHub necesitas sesión de tu cuenta personal.
 2. Copia APK a memoria USB y conéctala a TV. USB transfiere instalador; películas permanecen en PC.
 3. Abre gestor de archivos de TV y selecciona APK. Si TV no incluye gestor, instala uno compatible desde Google Play.
 4. Cuando Android lo solicite, permite **Instalar apps desconocidas** para ese gestor e instala Palomita TV. Nombre/ruta de ajuste depende de fabricante; [Android documenta permiso por aplicación](https://developer.android.com/studio/publish).

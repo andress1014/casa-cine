@@ -56,6 +56,7 @@ public final class ServerClient {
     }
     private JSONObject json(String endpoint, JSONObject body) throws Exception {
         HttpURLConnection request = connection(endpoint);
+        if (endpoint.equals("/api/tv/update/check")) request.setReadTimeout(45000);
         try {
             request.setRequestProperty("Accept", "application/json");
             if (body != null) {
@@ -79,6 +80,31 @@ public final class ServerClient {
         } finally { request.disconnect(); }
     }
     public boolean authenticated() throws Exception { return json("/api/session", null).optBoolean("authenticated"); }
+    public JSONObject checkTvUpdate() throws Exception { return json("/api/tv/update/check",new JSONObject()); }
+    public interface UpdateProgress { void accept(int percent); }
+    public void downloadTvUpdate(TvUpdate update,java.io.File destination,java.util.concurrent.atomic.AtomicBoolean cancelled,UpdateProgress progress) throws Exception {
+        HttpURLConnection request = connection("/api/tv/update/apk/" + update.sha256);
+        request.setReadTimeout(30000); long start = android.os.SystemClock.elapsedRealtime();
+        try {
+            if (cancelled.get()) throw new Exception("Cancelado.");
+            int status = request.getResponseCode();
+            if (status == 401) throw new AccessRequired();
+            if (status != 200) throw new Exception("Descarga no disponible.");
+            String length = request.getHeaderField("Content-Length");
+            if (length == null || Long.parseLong(length) != update.size) throw new Exception("Tamaño de APK inválido.");
+            try (InputStream input = request.getInputStream(); java.io.FileOutputStream output = new java.io.FileOutputStream(destination)) {
+                byte[] bytes = new byte[65536]; long total = 0; int count, last = -1;
+                while ((count = input.read(bytes)) != -1) {
+                    if (cancelled.get() || Thread.currentThread().isInterrupted() || android.os.SystemClock.elapsedRealtime() - start > 180000) throw new Exception("Descarga interrumpida.");
+                    total += count; if (total > update.size) throw new Exception("Tamaño de APK inválido.");
+                    output.write(bytes,0,count); int percent = (int)(total * 100 / update.size);
+                    if (percent != last) { progress.accept(percent); last = percent; }
+                }
+                if (total != update.size) throw new Exception("Descarga incompleta.");
+                output.getFD().sync();
+            }
+        } finally { request.disconnect(); }
+    }
     public void login(String code) throws Exception {
         if (code == null || code.length() > 128) throw new IllegalArgumentException("Código inválido.");
         json("/api/session", new JSONObject().put("code", code));

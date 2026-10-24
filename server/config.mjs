@@ -17,6 +17,8 @@ const envSchema = z.object({
   TMDB_API_KEY: z.union([z.literal(''),z.string().regex(/^[a-f0-9]{32}$/)]).default(''),
   DATA_DIR: z.string().default(''),
   HOUSE_CODE: z.string().max(128).default(''),
+  TV_UPDATE_GITHUB_TOKEN: z.string().trim().max(2048).refine(v => !/[\x00-\x20\x7f]/.test(v)).default(''),
+  TV_UPDATE_REPOSITORY: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/).default('andress1014/casa-cine'),
 });
 
 export function makeConfig(overrides = {}) {
@@ -39,6 +41,7 @@ export function makeConfig(overrides = {}) {
     tlsPort: env.TLS_PORT, tlsCert: env.TLS_CERT, tlsKey: env.TLS_KEY,
     tmdbToken: env.TMDB_READ_ACCESS_TOKEN, tmdbKey: env.TMDB_API_KEY || personalKey,
     houseCode: env.HOUSE_CODE, dev: false,
+    tvUpdateToken: env.TV_UPDATE_GITHUB_TOKEN, tvUpdateRepository: env.TV_UPDATE_REPOSITORY,
     ...overrides,
   };
   if (Boolean(config.tlsCert) !== Boolean(config.tlsKey)) throw new Error('HTTPS requiere TLS_CERT y TLS_KEY juntos.');

@@ -27,6 +27,7 @@ public final class MainActivity extends TvActivity {
     };
     private SharedPreferences prefs;
     private ServerClient client;
+    private TvUpdater updater;
     private List<Media> library = new ArrayList<>(), visible = new ArrayList<>();
     private String filter = "Todo", search = "", signature = "", focusedMediaId = "";
     private GridView grid;
@@ -50,7 +51,7 @@ public final class MainActivity extends TvActivity {
         String saved = prefs.getString("server",""); showConnection();
         if (saved != null && !saved.isEmpty()) connect(saved); else discover();
     }
-    @Override protected void onResume() { super.onResume(); resumed = true; main.removeCallbacks(poll); main.post(poll); if (catalogue) { updateIdentity(); applyFilter(); } }
+    @Override protected void onResume() { super.onResume(); resumed = true; main.removeCallbacks(poll); main.post(poll); if (updater != null) { updater.resume(); if (client != null && !busy) updater.check(client,false); } if (catalogue) { updateIdentity(); applyFilter(); } }
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent); setIntent(intent);
         if (client != null && intent.hasExtra("section")) {
@@ -58,8 +59,8 @@ public final class MainActivity extends TvActivity {
             if ("cine".equals(section)) { showCatalogue(); applyFilter(); } else showHub();
         }
     }
-    @Override protected void onPause() { resumed = false; main.removeCallbacks(poll); super.onPause(); }
-    @Override protected void onDestroy() { main.removeCallbacksAndMessages(null); tasks.shutdownNow(); super.onDestroy(); }
+    @Override protected void onPause() { resumed = false; if (updater != null) updater.pause(); main.removeCallbacks(poll); super.onPause(); }
+    @Override protected void onDestroy() { if (updater != null) updater.close(); main.removeCallbacksAndMessages(null); tasks.shutdownNow(); super.onDestroy(); }
     private void ui(Runnable action) { main.post(() -> { if (!isFinishing() && !isDestroyed()) action.run(); }); }
     private void toast(String message) { Toast.makeText(this,message,Toast.LENGTH_LONG).show(); }
     private LinearLayout screen() {
@@ -76,6 +77,8 @@ public final class MainActivity extends TvActivity {
         input.setSingleLine(true); input.setSelectAllOnFocus(true); input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(max)}); return input;
     }
     private void showConnection() {
+        if (updater != null) updater.close(); updater = new TvUpdater(this);
+        if (resumed) updater.resume();
         generation++; catalogue = false; busy = false; client = null; grid = null; identity = null; controllerLabel = null; backdrop=null; artworkKey=""; if (artworkDelay!=null) main.removeCallbacks(artworkDelay); library.clear(); visible.clear(); signature = "";
         LinearLayout root = screen(); root.addView(Ui.text(this,"guarida.  ✳",44,Ui.LIME,true)); Ui.space(root,14);
         root.addView(Ui.text(this,"Tu casa tiene pantalla grande",27,Ui.TEXT,true)); Ui.space(root,12);
@@ -108,6 +111,7 @@ public final class MainActivity extends TvActivity {
                 ui(() -> { if (request != generation) return; busy = false; prefs.edit().putString("server",selected.base).apply(); library = fetched;
                     if ("cine".equals(getIntent().getStringExtra("section"))) { getIntent().removeExtra("section"); showCatalogue(); applyFilter(); }
                     else showHub();
+                    updater.check(selected,false);
                     if (prefs.getString("user-name","").isEmpty()) profile(); });
             } catch (ServerClient.AccessRequired error) { ui(() -> { if (request == generation) { busy = false; askCode(selected); } }); }
             catch (Exception error) { ui(() -> { if (request == generation) { busy = false; status.setText("Sin conexión. Revisa PC encendida, IP y firewall de red privada."); } }); }
@@ -134,9 +138,10 @@ public final class MainActivity extends TvActivity {
         identity=shell.identity; backdrop=shell.backdrop; artworkKey=""; updateIdentity(); return shell.content;
     }
     private void options() {
-        String[] labels=catalogue ? new String[]{"Agregar / quitar favorito","Actualizar cartelera","Mi perfil","Conectar mando PS5","Cambiar PC"}
-            : new String[]{"Mi perfil","Conectar mando PS5","Cambiar PC"};
+        String[] labels=catalogue ? new String[]{"Agregar / quitar favorito","Actualizar cartelera","Mi perfil","Conectar mando PS5","Cambiar PC","Actualizar Guarida"}
+            : new String[]{"Mi perfil","Conectar mando PS5","Cambiar PC","Actualizar Guarida"};
         new AlertDialog.Builder(this).setTitle("Opciones").setItems(labels,(d,index) -> {
+            if (index == labels.length - 1) { updater.check(client,true); return; }
             if (catalogue) {
                 if (index==0) toggleSelectedFavourite();
                 else if (index==1) refresh(true);
