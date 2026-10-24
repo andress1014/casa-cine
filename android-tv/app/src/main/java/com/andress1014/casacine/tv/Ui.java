@@ -21,8 +21,8 @@ import android.widget.ImageView;
 import android.widget.ImageButton;
 
 public final class Ui {
-    public static final int BG = Color.rgb(16,21,16), PANEL = Color.rgb(32,43,25), LIME = Color.rgb(216,252,112);
-    public static final int TEXT = Color.rgb(239,244,226), MUTED = Color.rgb(163,181,141);
+    public static final int BG = Color.rgb(9,11,17), PANEL = Color.rgb(25,30,40), LIME = Color.rgb(199,243,107);
+    public static final int TEXT = Color.rgb(246,247,250), MUTED = Color.rgb(163,171,185);
     private Ui() {}
     public static int dp(Context context, int value) { return Math.round(value * context.getResources().getDisplayMetrics().density); }
     public static GradientDrawable panel(int color, int stroke, Context context) {
@@ -32,8 +32,8 @@ public final class Ui {
     public static StateListDrawable focus(Context context) {
         StateListDrawable selector = new StateListDrawable();
         selector.addState(new int[]{android.R.attr.state_focused},panel(LIME,LIME,context));
-        selector.addState(new int[]{android.R.attr.state_selected},panel(Color.rgb(50,68,31),Color.rgb(111,144,74),context));
-        selector.addState(new int[]{},panel(Color.argb(145,32,43,25),Color.TRANSPARENT,context)); return selector;
+        selector.addState(new int[]{android.R.attr.state_selected},panel(Color.rgb(40,49,42),Color.rgb(111,144,74),context));
+        selector.addState(new int[]{},panel(Color.argb(210,35,41,53),Color.TRANSPARENT,context)); return selector;
     }
     public static TextView text(Context context, String label, int size, int color, boolean bold) {
         TextView view = new TextView(context); view.setText(label); view.setTextSize(size); view.setTextColor(color);
@@ -61,18 +61,21 @@ public final class Ui {
         private TvShell(LinearLayout content, TextView identity,ImageView backdrop) { this.content=content; this.identity=identity; this.backdrop=backdrop; }
     }
     public static TvShell shell(Activity activity,String section,String profile,Runnable home,Runnable cinema,Runnable gaming,Runnable search,Runnable options,Runnable editProfile) {
-        FrameLayout canvas=new FrameLayout(activity); canvas.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{Color.rgb(25,42,37),BG,Color.rgb(24,22,37)}));
+        FrameLayout canvas=new FrameLayout(activity); canvas.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{Color.rgb(21,29,39),BG,Color.rgb(17,19,30)}));
         if (section.equals("Gaming")) {
             ImageView ambience=new ImageView(activity); ambience.setScaleType(ImageView.ScaleType.CENTER_CROP); ambience.setImageResource(R.drawable.gaming_backdrop); canvas.addView(ambience,new FrameLayout.LayoutParams(-1,-1));
         }
         ImageView backdrop=new ImageView(activity); backdrop.setScaleType(ImageView.ScaleType.CENTER_CROP); backdrop.setAlpha(.78f); canvas.addView(backdrop,new FrameLayout.LayoutParams(-1,-1));
         boolean arcade=section.equals("Gaming");
-        View shade=new View(activity); shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,arcade ? new int[]{0xEE091019,0x76091019,0x10091019} : new int[]{0xFA101510,0xAD101510,0x25101510})); canvas.addView(shade,new FrameLayout.LayoutParams(-1,-1));
-        View bottom=new View(activity); bottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,arcade ? new int[]{0x00090D15,0x66090D15,0xFF090D15} : new int[]{0x00101510,0xA0101510,BG})); canvas.addView(bottom,new FrameLayout.LayoutParams(-1,-1));
+        View shade=new View(activity); shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,arcade ? new int[]{0xEE091019,0x76091019,0x10091019} : new int[]{0xF5090B11,0xAD090B11,0x20090B11})); canvas.addView(shade,new FrameLayout.LayoutParams(-1,-1));
+        View bottom=new View(activity); bottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x00090B11,0x77090B11,BG})); canvas.addView(bottom,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout root=column(activity); canvas.addView(root,new FrameLayout.LayoutParams(-1,-1));
-        LinearLayout header=new LinearLayout(activity); header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(activity,28),0,dp(activity,28),0);
-        header.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0xC9091014,0x00091014}));
-        header.addView(text(activity,"guarida.",23,LIME,true),new LinearLayout.LayoutParams(dp(activity,142),-2));
+        LinearLayout header=new LinearLayout(activity); header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(activity,32),0,dp(activity,32),0);
+        header.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0xF0090B11,0x55090B11}));
+        LinearLayout brand=new LinearLayout(activity); brand.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView mark=new ImageView(activity); mark.setImageResource(R.drawable.app_icon); brand.addView(mark,new LinearLayout.LayoutParams(dp(activity,30),dp(activity,30)));
+        TextView wordmark=text(activity,"guarida.",23,TEXT,true); wordmark.setLetterSpacing(-.05f); wordmark.setPadding(dp(activity,7),0,0,0); brand.addView(wordmark);
+        header.addView(brand,new LinearLayout.LayoutParams(dp(activity,148),-2));
         nav(header,"Inicio",section.equals("Inicio"),home); nav(header,"Cine",section.equals("Cine"),cinema); nav(header,"Gaming",section.equals("Gaming"),gaming);
         header.addView(new View(activity),new LinearLayout.LayoutParams(0,1,1));
         header.addView(icon(activity,"search","Buscar",search),new LinearLayout.LayoutParams(dp(activity,42),dp(activity,42)));
@@ -86,10 +89,11 @@ public final class Ui {
             @Override public void onTextChanged(CharSequence s,int start,int before,int count) { }
             @Override public void afterTextChanged(Editable text) { String value=text.toString().trim(); avatar.setText(value.isEmpty() || value.startsWith("·") ? "TV" : new String(Character.toChars(value.codePointAt(0))).toUpperCase(java.util.Locale.ROOT)); avatar.setContentDescription("Perfil: "+value); }
         }); identity.setText(profile); identity.setOnClickListener(v -> editProfile.run()); header.addView(identity,new LinearLayout.LayoutParams(dp(activity,118),-2));
-        root.addView(header,new LinearLayout.LayoutParams(-1,dp(activity,64)));
+        if (activity.getResources().getConfiguration().screenWidthDp<840) identity.setVisibility(View.GONE);
+        root.addView(header,new LinearLayout.LayoutParams(-1,dp(activity,60)));
         LinearLayout content=column(activity); content.setPadding(dp(activity,40),dp(activity,8),dp(activity,40),dp(activity,16));
         root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
-        TextView version=version(activity); version.setPadding(dp(activity,40),0,dp(activity,40),dp(activity,12));
+        TextView version=version(activity); version.setTextSize(10); version.setPadding(dp(activity,40),0,dp(activity,40),dp(activity,8));
         root.addView(version,new LinearLayout.LayoutParams(-1,-2));
         activity.setContentView(canvas); return new TvShell(content,identity,backdrop);
     }

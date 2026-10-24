@@ -38,6 +38,7 @@ public final class MainActivity extends TvActivity {
     private TextView heroTitle,heroInfo,heroDescription;
     private Button heroPlay;
     private Media featured;
+    private HomeScreen homeScreen;
     private String artworkKey="";
     private Runnable artworkDelay;
     private final LruCache<String,Bitmap> backgrounds=new LruCache<String,Bitmap>(8*1024*1024) { @Override protected int sizeOf(String key,Bitmap bitmap) { return bitmap.getByteCount(); } };
@@ -51,7 +52,7 @@ public final class MainActivity extends TvActivity {
         String saved = prefs.getString("server",""); showConnection();
         if (saved != null && !saved.isEmpty()) connect(saved); else discover();
     }
-    @Override protected void onResume() { super.onResume(); resumed = true; main.removeCallbacks(poll); main.post(poll); if (updater != null) { updater.resume(); if (client != null && !busy) updater.check(client,false); } if (catalogue) { updateIdentity(); applyFilter(); } }
+    @Override protected void onResume() { super.onResume(); resumed = true; main.removeCallbacks(poll); main.post(poll); if (updater != null) { updater.resume(); if (client != null && !busy) updater.check(client,false); } if (catalogue) { updateIdentity(); applyFilter(); } else if (homeScreen != null) { updateIdentity(); homeScreen.refresh(favourites()); } }
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent); setIntent(intent);
         if (client != null && intent.hasExtra("section")) {
@@ -77,10 +78,13 @@ public final class MainActivity extends TvActivity {
         input.setSingleLine(true); input.setSelectAllOnFocus(true); input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(max)}); return input;
     }
     private void showConnection() {
+        homeScreen=null;
         if (updater != null) updater.close(); updater = new TvUpdater(this);
         if (resumed) updater.resume();
         generation++; catalogue = false; busy = false; client = null; grid = null; identity = null; controllerLabel = null; backdrop=null; artworkKey=""; if (artworkDelay!=null) main.removeCallbacks(artworkDelay); library.clear(); visible.clear(); signature = "";
-        LinearLayout root = screen(); root.addView(Ui.text(this,"guarida.  ✳",44,Ui.LIME,true)); Ui.space(root,14);
+        LinearLayout root = screen(); LinearLayout brand=row();
+        ImageView mark=new ImageView(this); mark.setImageResource(R.drawable.app_icon); brand.addView(mark,new LinearLayout.LayoutParams(Ui.dp(this,52),Ui.dp(this,52)));
+        TextView wordmark=Ui.text(this,"guarida.",36,Ui.TEXT,true); wordmark.setLetterSpacing(-.05f); wordmark.setPadding(Ui.dp(this,12),0,0,0); brand.addView(wordmark); root.addView(brand); Ui.space(root,18);
         root.addView(Ui.text(this,"Tu casa tiene pantalla grande",27,Ui.TEXT,true)); Ui.space(root,12);
         root.addView(Ui.text(this,"Enciende Guarida en PC. Conecta TV al mismo Wi-Fi.",18,Ui.MUTED,false)); Ui.space(root,16);
         root.addView(Ui.text(this,DeviceIdentity.deviceName(this),16,Ui.MUTED,false));
@@ -95,11 +99,11 @@ public final class MainActivity extends TvActivity {
         controls.getChildAt(0).requestFocus();
     }
     private void discover() {
-        if (discovering) return; discovering = true; int request = generation; status.setText("Buscando Palomita en Wi-Fi…");
+        if (discovering) return; discovering = true; int request = generation; status.setText("Buscando Guarida en Wi-Fi…");
         tasks.execute(() -> { List<String> servers = ServerClient.discover(); ui(() -> {
             discovering = false; if (request != generation || catalogue) return; results.removeAllViews();
             if (servers.size() == 1) { address.setText(servers.get(0)); connect(servers.get(0)); }
-            else if (servers.isEmpty()) status.setText("Sin detección automática. Escribe IP que muestra Palomita en PC.");
+            else if (servers.isEmpty()) status.setText("Sin detección automática. Escribe IP que muestra Guarida en PC.");
             else { status.setText("Escoge PC de casa:"); for (String server : servers) results.addView(Ui.button(this,server,() -> connect(server))); }
         }); });
     }
@@ -163,6 +167,7 @@ public final class MainActivity extends TvActivity {
     }
     private Button collectionButton;
     private void showCatalogue() {
+        homeScreen=null;
         catalogue=true; controllerLabel=null; LinearLayout root=hubScreen("Cine");
         LinearLayout heading=row(); heading.addView(Ui.text(this,"CINE EN CASA",14,0xFFABB3BB,true),new LinearLayout.LayoutParams(0,-2,1));
         collectionButton=Ui.compact(this,filter+"  ▾",this::chooseCollection); heading.addView(collectionButton); root.addView(heading); Ui.space(root,10);
@@ -188,16 +193,30 @@ public final class MainActivity extends TvActivity {
     }
     private void showHub() {
         generation++; busy=false; catalogue=false; grid=null;
-        LinearLayout root=hubScreen("Inicio"); root.addView(Ui.text(this,"Tu casa. Tu guarida.",32,Ui.TEXT,true)); Ui.space(root,8);
-        root.addView(Ui.text(this,"¿Qué hacemos hoy?",18,Ui.MUTED,false)); Ui.space(root,32);
-        LinearLayout choices=row();
-        Button cinema=Ui.feature(this,"▶ Cine","Películas y series",() -> { showCatalogue(); applyFilter(); });
-        Button gaming=Ui.feature(this,"✚ Gaming","PlayStation 1 · Super Nintendo",() -> startActivity(new Intent(this,GamingActivity.class)));
-        LinearLayout.LayoutParams first=new LinearLayout.LayoutParams(0,Ui.dp(this,150),1); first.setMargins(0,0,Ui.dp(this,16),0); choices.addView(cinema,first);
-        choices.addView(gaming,new LinearLayout.LayoutParams(0,Ui.dp(this,150),1)); root.addView(choices); Ui.space(root,24);
-        controllerLabel=Ui.text(this,Controllers.status(),13,Ui.MUTED,false); root.addView(controllerLabel);
-        root.addView(new View(this),new LinearLayout.LayoutParams(1,0,1));
-        root.addView(Ui.text(this,"Tu biblioteca vive en PC. Disfrútala aquí.",13,Ui.MUTED,false)); if (!library.isEmpty()) loadBackground(library.get(0)); cinema.requestFocus();
+        controllerLabel=null;
+        homeScreen=new HomeScreen(this,hubScreen("Inicio"),library,favourites(),new HomeScreen.Listener() {
+            @Override public void play(Media media) { MainActivity.this.play(media,false); }
+            @Override public void details(Media media) { MainActivity.this.details(media); }
+            @Override public void cinema() { filter="Todo"; search=""; showCatalogue(); applyFilter(); }
+            @Override public void gaming() { startActivity(new Intent(MainActivity.this,GamingActivity.class)); }
+            @Override public long position(Media media) { return MainActivity.this.position(media); }
+            @Override public void artwork(Media media,ImageView target,boolean wide) { loadHomeArtwork(media,target,wide); }
+            @Override public void feature(Media media) { loadBackground(media); }
+        });
+    }
+    private void loadHomeArtwork(Media media,ImageView target,boolean wide) {
+        ServerClient selected=client; int request=generation;
+        String key="home:"+(wide ? "wide:" : "poster:")+selected.base+":"+media.id+":"+media.posterVersion;
+        target.setTag(key); Bitmap cached=posters.get(key); if (cached!=null) { target.setImageBitmap(cached); return; }
+        tasks.execute(() -> {
+            try {
+                Bitmap image=wide ? selected.artwork(media) : selected.poster(media.id); if (image==null) return;
+                int width=wide ? 400 : 240;
+                Bitmap thumbnail=image.getWidth()>width ? Bitmap.createScaledBitmap(image,width,Math.max(1,image.getHeight()*width/image.getWidth()),true) : image;
+                posters.put(key,thumbnail);
+                ui(() -> { if (request==generation && key.equals(target.getTag())) target.setImageBitmap(thumbnail); });
+            } catch (Exception ignored) { }
+        });
     }
     @Override public void onBackPressed() { if (catalogue && client != null) showHub(); else super.onBackPressed(); }
     private void refresh(boolean showStatus) {
@@ -230,7 +249,7 @@ public final class MainActivity extends TvActivity {
         if (!visible.isEmpty()) { selection=Math.min(selection,visible.size()-1); grid.setSelection(selection); feature(visible.get(selection)); }
         else { featured=null; heroPlay.setEnabled(false); heroTitle.setText("Tu próxima noche de cine"); heroInfo.setText(""); heroDescription.setText("Elige otra categoría o sube videos desde PC."); artworkKey=""; backdrop.setImageDrawable(null); }
         empty.setVisibility(visible.isEmpty() ? View.VISIBLE : View.GONE);
-        empty.setText(library.isEmpty() ? "Tu primera función empieza en PC. Sube videos desde Palomita web." : "Todavía no hay historias en esta selección."); updateStatus();
+        empty.setText(library.isEmpty() ? "Tu primera función empieza en PC. Sube videos desde Guarida web." : "Todavía no hay historias en esta selección."); updateStatus();
     }
     private void feature(Media item) {
         featured=item; heroPlay.setEnabled("ready".equals(item.status)); heroPlay.setText(position(item)>5000 ? "▶ Continuar" : "▶ Reproducir");
@@ -268,7 +287,7 @@ public final class MainActivity extends TvActivity {
     }
     private void toggleFavourite(Media item) {
         Set<String> stars = favourites(); boolean removed = stars.remove(item.id); if (!removed) stars.add(item.id);
-        prefs.edit().putStringSet("favourites:" + client.base,stars).apply(); applyFilter(); toast(removed ? "Quitado de favoritos." : "Guardado en favoritos.");
+        prefs.edit().putStringSet("favourites:" + client.base,stars).apply(); if (homeScreen!=null) homeScreen.refresh(stars); else applyFilter(); toast(removed ? "Quitado de favoritos." : "Guardado en favoritos.");
     }
     private void details(Media item) {
         new AlertDialog.Builder(this).setTitle(item.title).setMessage(item.description + "\n\n" + item.category + " · " + item.length() + " · " + item.addedBy)
@@ -276,7 +295,7 @@ public final class MainActivity extends TvActivity {
             .setNegativeButton("Desde inicio",(d,w) -> play(item,true)).show();
     }
     private void play(Media item, boolean fromStart) {
-        if (!"ready".equals(item.status)) { toast("processing".equals(item.status) ? "PC está preparando video: " + item.progress + "%" : "Video necesita reintento desde Palomita web."); return; }
+        if (!"ready".equals(item.status)) { toast("processing".equals(item.status) ? "PC está preparando video: " + item.progress + "%" : "Video necesita reintento desde Guarida web."); return; }
         Intent intent = new Intent(this,PlayerActivity.class); intent.putExtra("id",item.id); intent.putExtra("fromStart",fromStart); startActivity(intent);
     }
     private final class Cards extends BaseAdapter {

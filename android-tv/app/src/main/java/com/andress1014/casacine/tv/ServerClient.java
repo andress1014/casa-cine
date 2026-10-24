@@ -68,7 +68,7 @@ public final class ServerClient {
             }
             int status = request.getResponseCode();
             if (status == 401) throw new AccessRequired();
-            if (status < 200 || status >= 300) throw new Exception(status == 429 ? "Espera un minuto antes de volver a intentar." : "No pudimos conectar con Palomita.");
+            if (status < 200 || status >= 300) throw new Exception(status == 429 ? "Espera un minuto antes de volver a intentar." : "No pudimos conectar con Guarida.");
             String received = request.getHeaderField("Set-Cookie");
             if (received != null) {
                 String cookie = received.split(";", 2)[0];

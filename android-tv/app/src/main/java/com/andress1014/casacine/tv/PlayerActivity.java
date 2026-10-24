@@ -88,7 +88,7 @@ public final class PlayerActivity extends TvActivity {
         if (timeBar != null) timeBar.setKeyTimeIncrement(RemoteSeek.STEP_MS);
         if (view.getSubtitleView() != null) { view.getSubtitleView().setUserDefaultStyle(); view.getSubtitleView().setUserDefaultTextSize(); }
         LinearLayout top = Ui.column(this); top.setBackgroundColor(0xcc101510); top.setPadding(Ui.dp(this,30),Ui.dp(this,16),Ui.dp(this,30),Ui.dp(this,12));
-        title = Ui.text(this,"Palomita · Preparando función…",20,Ui.TEXT,true); top.addView(title); Ui.space(top,8);
+        title = Ui.text(this,"Guarida · Preparando función…",20,Ui.TEXT,true); top.addView(title); Ui.space(top,8);
         tools = new LinearLayout(this); tools.setGravity(Gravity.CENTER_VERTICAL);
         addTool("Subtítulos",() -> tracks(C.TRACK_TYPE_TEXT,"Subtítulos")); addTool("Audio",() -> tracks(C.TRACK_TYPE_AUDIO,"Audio"));
         addTool("Velocidad",this::speed); addTool("Imagen",this::imageSize); addTool("Créditos",this::credits); addTool("Volver",this::finish);
@@ -141,7 +141,7 @@ public final class PlayerActivity extends TvActivity {
                     .setMediaMetadata(new MediaMetadata.Builder().setTitle(media.title).build()).build();
                 main.post(() -> {
                     if (request != generation || player == null) return;
-                    title.setText("Palomita · " + media.title); idleTitle.setText(media.title); player.setMediaItem(item);
+                title.setText("Guarida · " + media.title); idleTitle.setText(media.title); player.setMediaItem(item);
                     if (!fromStart) player.seekTo(Math.max(0,prefs.getLong(key,0))); fromStart = false;
                     player.prepare(); player.setPlayWhenReady(true); main.postDelayed(save,5000);
                 });
@@ -170,7 +170,7 @@ public final class PlayerActivity extends TvActivity {
         if (player == null) return;
         boolean available = false;
         for (androidx.media3.common.Tracks.Group group : player.getCurrentTracks().getGroups()) if (group.getType() == type && group.isSupported()) { available = true; break; }
-        if (!available) { Toast.makeText(this,type == C.TRACK_TYPE_TEXT ? "Sin subtítulos. Añade SRT/VTT desde Palomita en PC." : "Sin pista de audio compatible.",Toast.LENGTH_LONG).show(); return; }
+        if (!available) { Toast.makeText(this,type == C.TRACK_TYPE_TEXT ? "Sin subtítulos. Añade SRT/VTT desde Guarida en PC." : "Sin pista de audio compatible.",Toast.LENGTH_LONG).show(); return; }
         new TrackSelectionDialogBuilder(this,label,player,type).setShowDisableOption(type == C.TRACK_TYPE_TEXT).build().show();
     }
     private void speed() {
@@ -186,7 +186,7 @@ public final class PlayerActivity extends TvActivity {
         content.addView(logo,new LinearLayout.LayoutParams(Ui.dp(this,140),Ui.dp(this,35))); Ui.space(content,16);
         content.addView(Ui.text(this,"This product uses the TMDB API but is not endorsed or certified by TMDB.",14,Ui.TEXT,false));
         Ui.space(content,10); content.addView(Ui.text(this,"The Movie Database · https://www.themoviedb.org",12,Ui.MUTED,false));
-        new AlertDialog.Builder(this).setTitle("Créditos · Palomita").setView(content).setPositiveButton("Cerrar",(d,w) -> {}).show();
+        new AlertDialog.Builder(this).setTitle("Créditos · Guarida").setView(content).setPositiveButton("Cerrar",(d,w) -> {}).show();
     }
     private void hideIdleArtwork() {
         idleVisible = false; if (idleArtwork != null) idleArtwork.setVisibility(View.GONE);
