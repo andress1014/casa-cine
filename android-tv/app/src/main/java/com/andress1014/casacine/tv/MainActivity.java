@@ -111,8 +111,7 @@ public final class MainActivity extends TvActivity {
                 ui(() -> { if (request != generation) return; busy = false; prefs.edit().putString("server",selected.base).apply(); library = fetched;
                     if ("cine".equals(getIntent().getStringExtra("section"))) { getIntent().removeExtra("section"); showCatalogue(); applyFilter(); }
                     else showHub();
-                    updater.check(selected,false);
-                    if (prefs.getString("user-name","").isEmpty()) profile(); });
+                    updater.check(selected,false); });
             } catch (ServerClient.AccessRequired error) { ui(() -> { if (request == generation) { busy = false; askCode(selected); } }); }
             catch (Exception error) { ui(() -> { if (request == generation) { busy = false; status.setText("Sin conexión. Revisa PC encendida, IP y firewall de red privada."); } }); }
         });
@@ -245,10 +244,10 @@ public final class MainActivity extends TvActivity {
         main.postDelayed(artworkDelay,180);
     }
     private void updateStatus() { status.setText(visible.size() + " historias" + (search.isEmpty() ? "" : "  ·  “" + search + "”")); }
-    private void updateIdentity() { if (identity != null) identity.setText(prefs.getString("user-name","") + "  ·  " + DeviceIdentity.deviceName(this)); }
+    private void updateIdentity() { if (identity != null) identity.setText(DeviceIdentity.viewer(this,prefs)); }
     private void profile() {
-        EditText name = input(prefs.getString("user-name",""),"Tu nombre",60);
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("¿Quién está viendo?").setMessage("Android TV no expone nombre de usuario del sistema. Guarda tu nombre para este dispositivo.")
+        EditText name = input(DeviceIdentity.viewer(this,prefs),"Tu nombre",60);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Nombre en este TV").setMessage("Por defecto se usa el nombre del dispositivo. Puedes cambiarlo si quieres.")
             .setView(name).setNegativeButton("Después",(d,w) -> {}).setPositiveButton("Guardar",null).create();
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String chosen = DeviceIdentity.clean(name.getText().toString()); if (chosen.isEmpty()) { name.setError("Escribe tu nombre."); return; }

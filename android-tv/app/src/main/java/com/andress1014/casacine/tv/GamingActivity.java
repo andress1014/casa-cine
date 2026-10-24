@@ -49,7 +49,7 @@ public final class GamingActivity extends TvActivity {
         super.onCreate(state); prefs = getSharedPreferences("casacine",MODE_PRIVATE);
         try { client = new ServerClient(prefs.getString("server","")); } catch (Exception e) { finish(); return; }
         selectedPlayer = prefs.getString("game-player:"+client.base,"");
-        Ui.TvShell shell=Ui.shell(this,"Gaming",prefs.getString("user-name","")+" · "+DeviceIdentity.deviceName(this),
+        Ui.TvShell shell=Ui.shell(this,"Gaming",DeviceIdentity.viewer(this,prefs),
             () -> returnToMain("inicio"),() -> returnToMain("cine"),
             () -> {},this::searchDialog,this::options,this::chooseProfile);
         LinearLayout root=shell.content; backdrop=shell.backdrop; identity=shell.identity;
@@ -111,7 +111,7 @@ public final class GamingActivity extends TvActivity {
             catch (Exception error) { ui(() -> { if (request != generation) return; busy=false; status.setText("Sin conexión Gaming. Revisa PC encendida y Guarida actualizado."); }); }
         });
     }
-    private void updateProfile() { identity.setText((playerName.isEmpty() ? prefs.getString("user-name","") : playerName)+" · "+DeviceIdentity.deviceName(this)); profile.setText((featured==null ? "" : featured.console()+"  ·  ")+(playerName.isEmpty() ? "Escoge jugador desde Opciones" : "Jugador: "+playerName)); }
+    private void updateProfile() { identity.setText(playerName.isEmpty() ? DeviceIdentity.viewer(this,prefs) : playerName); profile.setText((featured==null ? "" : featured.console()+"  ·  ")+(playerName.isEmpty() ? "Escoge jugador desde Opciones" : "Jugador: "+playerName)); }
     private void selectProfile(JSONObject p) {
         if (p==null) return;
         try { ServerClient.validateId(p.optString("id")); } catch (Exception invalid) { return; }
@@ -125,7 +125,7 @@ public final class GamingActivity extends TvActivity {
     }
     private void newProfile() {
         EditText input=new EditText(this); input.setSingleLine(true); input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(60)});
-        input.setText(prefs.getString("user-name",""));
+        input.setText(DeviceIdentity.viewer(this,prefs));
         AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Nombre de jugador").setView(input).setNegativeButton("Cancelar",(d,w) -> {}).setPositiveButton("Guardar",null).create();
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String name=DeviceIdentity.clean(input.getText().toString()); if (name.isEmpty()) { input.setError("Escribe nombre."); return; }
