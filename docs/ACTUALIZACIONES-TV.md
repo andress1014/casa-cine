@@ -1,5 +1,14 @@
 # Actualizar Guarida desde TV
 
+## Permisos desde 1.3.9
+
+- **Instalar apps desconocidas:** Android exige que usuario autorice Guarida como origen. App no puede concederse este permiso; normalmente se conserva al actualizar mismo paquete y certificado. Solo abre Ajustes si Android indica que falta.
+- **Confirmar cada instalación:** Android 12/API 31 o superior permite solicitar autoactualización sin confirmación mediante `UPDATE_PACKAGES_WITHOUT_USER_ACTION` y `USER_ACTION_NOT_REQUIRED`. Guarida solicita este modo desde 1.3.9. Android decide si permite continuar y puede requerir confirmación; se conserva manejo de `STATUS_PENDING_USER_ACTION`.
+- En Android anterior a 12, app normal mantiene flujo de confirmación del sistema.
+- Instalar 1.3.9 desde 1.3.8 todavía usa actualizador anterior, que solicita confirmación. Para probar nuevo modo hace falta instalar 1.3.9 y después actualizar a una versión posterior.
+
+Contrato oficial: [PackageInstaller.SessionParams.setRequireUserAction](https://developer.android.com/reference/android/content/pm/PackageInstaller.SessionParams#setRequireUserAction(int)). Descarga sigue iniciándose al elegir Actualizar en app; este cambio trata confirmación del instalador Android.
+
 > **Desde 1.3.5 (24 de octubre de 2026):** el repositorio es público y el TV consulta GitHub directamente (`GitHubReleases.java`): lee `releases/latest`, baja `tv-update.json` y el APK de `github.com/andress1014/casa-cine/releases/download/<tag>/`, y verifica tamaño, SHA-256, paquete, versión y certificado igual que antes. No hace falta token ni que el PC esté encendido para actualizar. La 1.3.5 se instala una vez a mano (USB) sobre la 1.3.4; las siguientes llegan desde **Opciones → Actualizar Guarida**. Las rutas `/api/tv/update*` del servidor y `TV_UPDATE_*` del `.env` quedan sin uso por el TV. Lo de abajo describe el flujo 1.3.4 vía PC.
 
 Implementación: 11 de octubre de 2026. APK compilada y verificada: 23 de octubre de 2026. Versión Android: 1.3.4, versionCode 8.

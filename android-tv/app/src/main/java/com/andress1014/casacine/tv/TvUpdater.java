@@ -171,7 +171,8 @@ final class TvUpdater {
         PackageInstaller installer = activity.getPackageManager().getPackageInstaller();
         PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
         params.setAppPackageName(BuildConfig.APPLICATION_ID); params.setSize(file.length());
-        if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
+        // Android 12+ supports eligible self-updates without confirmation; keep handling system requests for user action.
+        if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED);
         int id = installer.createSession(params); boolean committed = false;
         try (PackageInstaller.Session session = installer.openSession(id);
              FileInputStream source = new FileInputStream(file);
